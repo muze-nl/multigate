@@ -1,0 +1,63 @@
+version - date       	- main changes
+------------------------------------------------------------------------------------------------
+			- Fix in Debug to avoid strange perl(?) bugs
+			  Introduction of CommandSimple => support in Dispatch
+			  New scheduler
+			  Fixes in Console (start/stop/restart for non-wrappers)
+                          Dispatch: different way of loading Command module
+                          Command: no more caching of failed commands
+                          max_lines_multicast introduced
+
+3.0.pre4,5,6 -          - Extra functions in Users
+                          Small bugfixes in groups
+                          followme-functions enhanced: change main address too
+                          accounting added (commands and protocols)
+                          logging added (accountlog/*)
+                          group-protocols added
+			  Bugfix in (s|g|uns)et methods in Users.pm for group-protocol
+
+3.0.pre3- 03/03/2003    - Bug triggered by very long messages fixed, NBRead enhanced
+                          Groups introduced
+                          Small fixes in Config and Users
+
+3.0.pre2-               - Big rewrite of Dispatch and Command: cleanup and
+                          hooks for Groups and Accounting
+                          ENV{'MULTI_IS_MULTICAST'} introduced
+                          Restartable wrappers
+                          Do not send empty messages from Dispatch to Wrapper
+                          Bug in Command regarding ordering of arguments fixed
+
+
+
+3.0.pre	-		- Bug in Command regarding ordering of arguments fixed
+			  Bug in Command with arguments being '0'
+			  Ugly bugs fixed in scheduler.pl and Scheduler.pm (DoS)
+			  Minor updates on Console.pm and Multigate.pm (concerning scheduler)
+ 
+2.4.x   -               - Cleanup of lib/ , using default debian libs if possible
+
+2.4	- 25/10/2002	- CGI-like environment for commands
+			  Some cleanups in Command.pm
+
+2.3.x			- default protocols moved to multi.conf
+                          database name now in multi.conf
+			  Command cleanup + new caching mechanism
+
+2.3     - 02/09/2002 	- caching for commands 
+
+2.2	- 09/08/2002	- new Command.pm framework
+			  per command config
+			  global config used for wrappers etc.
+			  Util.pm
+
+2.1.1	- 16/05/2002	- Fixes in Wrapper for full pipes
+
+2.1	- 14/05/2002	- Console module
+			  non-blocking reads
+			  Minor fixes in Command and Dispatcher
+			  Changes in Scheduler
+
+2.0.1	- 13/05/2002	- Minor fixes in Command and Dispatcher
+
+2.0	- 14/02/2002	- Debug module
+			  Scheduler

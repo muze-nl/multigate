@@ -1,0 +1,14 @@
+This is the part where you put the specs for the modules and how to create
+new modules. Adding a module to the multigate process should not be a lot
+harder than copying a client into the directory and do a bit of tweaking.
+A wrapper is be available with a correct interface to the Multigate
+process. Just make sure the wrapper understands what the client is saying.
+The only thing that should come out of the wrapper is:
+- who is the sender.
+- what is the message.
+
+Why a wrapper? You can take just about any client, strip the output with
+regexps and feed whats left to Multigate. This way it will be possible to
+have 'normal' messaging clients as part of the Multigate system.
+A wrapper is also useful to combine seperate sending/receiving tools into
+one interface towards the mail Multigate process.

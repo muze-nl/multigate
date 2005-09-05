@@ -1,0 +1,11 @@
+AuthName "Multigate"
+AuthType Basic
+PerlAuthenHandler Apache::AuthDBI::authen
+#PerlAuthzHandler Apache::AuthDBI::authz
+PerlSetVar Auth_DBI_data_source dbi:mysql:multigate
+PerlSetVar Auth_DBI_username multilink
+PerlSetVar Auth_DBI_password xxxxxxx
+PerlSetVar Auth_DBI_pwd_table user
+PerlSetVar Auth_DBI_uid_field username
+PerlSetVar Auth_DBI_pwd_field password
+require valid-user

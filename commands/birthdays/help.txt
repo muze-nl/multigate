@@ -1,0 +1,2 @@
+birthdays [username | monthnumber] : lists the birthdays in the month ahead,
+or in month [monthnumber] or lists the birtday of [username]
