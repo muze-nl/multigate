@@ -37,6 +37,8 @@ map { $_ = lc($_) } @channels;    #all channels lower case
 my $versionstring = getconf('irc_version');    # reply to CTCP Version
 my $nick          = getconf('irc_nick');
 my $server        = getconf('irc_server');
+my $port          = getconf('irc_port');
+my $bindaddr      = getconf('irc_bindaddr');
 
 # Flush early
 $| = 1;
@@ -73,11 +75,11 @@ Multigate::Users::init_users_module();
 
 my $conn = $irc->newconn(
     Server    => $server,
-    Port      => 6663,
+    Port      => $port,
     Nick      => $nick,
     Ircname   => 'Multigate',
     Username  => 'multilink',
-    LocalAddr => 'ringbreak.dnd.utwente.nl'
+    LocalAddr => $bindaddr
   )
   or die "IRC: Can't connect to IRC server.\n";
 
