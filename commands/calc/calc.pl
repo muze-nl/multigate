@@ -41,7 +41,7 @@ sub tan {
 
 my $calc = new Safe;
 
-$calc->permit_only(qw( time localtime gmtime :base_math :base_core ));
+$calc->permit_only(qw( time localtime gmtime padany :base_math :base_core ));
 
 $calc->share(qw( pi e log10 log2 fac rad tan ));
 
