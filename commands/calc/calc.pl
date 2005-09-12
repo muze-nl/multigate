@@ -7,6 +7,7 @@
 use strict;
 
 use Safe;
+use BSD::Resource;
 
 use constant pi => 3.14159265358979;
 use constant e  => 2.718281828459045;
@@ -48,12 +49,21 @@ my $arg = $ARGV[0];
 
 $arg =~ s/,/./g;
 
+setrlimit(RLIMIT_VMEM, 8*1024*1024, -1);
+setrlimit(RLIMIT_CPU, 2, -1);
+setrlimit(RLIMIT_CORE, 0, -1);
+
+$SIG{'__WARN__'} = sub { die $_[0] };
+
 my $res = $calc->reval($arg);
+
+$SIG{'__WARN__'} = 'DEFAULT';
 
 if ( defined($res) ) {
     print "$res\n";
-}
-else {
-    print "Erroneous Input\n";
+} else {
+    my $error = $@;
+    $error =~ s/^(.+) at (.+)$/$1/;
+    print "Error: ", $error;
 }
 
