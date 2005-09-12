@@ -55,9 +55,10 @@ sub readconfig {
 
     while (<CONF>) {
         chomp;
+        next if /^\s*$/;    # empty lines
         next if /^\s*#/;
-        next if /^\s*$/;    #empty lines
-        s/#.*$//;
+        s/(?<!\\)#.*$//;    # comments on the end of a line, not \#
+        s/\\#/#/g;
         if (/\\$/) {
             chop;           # remove \
             $_ .= <CONF>;
@@ -98,8 +99,9 @@ sub read_commandconfig {
         while (<CCONF>) {
             chomp;
             next if /^\s*#/;
-            next if /^\s*$/;    #empty lines
-            s/#.*$//;
+            next if /^\s*$/;    # empty lines
+            s/(?<!\\)#.*$//;    # comments on the end of a line, not \#
+            s/\\#/#/g;
             if (/\\$/) {
                 chop;           # remove \
                 $_ .= <CCONF>;
