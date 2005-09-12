@@ -28,9 +28,9 @@ use Multigate::Users;
 use Multigate::Util;
 use Multigate::Accounting;
 
-@ISA     = qw( Exporter );
-@EXPORT  = qw( spawn_command );
-$VERSION = '1';
+@ISA    = qw( Exporter );
+@EXPORT = qw( spawn_command );
+$VERSION='1';
 
 #
 # Setup a SIGCHLD handler to prevent zombies..
@@ -58,9 +58,9 @@ sub spawn_command {
     pipe $parent, $child;    # child writes output, parent reads...
     make_non_blocking($parent);
 
-# Do not make the child non-blocking!
-# That will result in very unwanted behaviour when the command expands to a string larger than a pipe
-# GRRRRMMMM :)
+    # Do not make the child non-blocking!
+    # That will result in very unwanted behaviour when the command expands to a string larger than a pipe
+    # GRRRRMMMM :)
 
     if ( ( $pid = fork ) == 0 ) {
 
@@ -79,8 +79,7 @@ sub spawn_command {
         do_commands($command);
         exit(42);    # just to make sure, child dies
 
-    }
-    elsif ( !defined $pid ) {
+    } elsif ( !defined $pid ) {
         die "cannot fork!";    # this is baaaad...
     }
 
@@ -108,36 +107,29 @@ sub read_handler {
     my $in      = shift;
 
     debug( 'Command_debug', "Command::read_handler: $in" );
-
+    
     if ($in) {
-
-        #Fix for CtlAltDel needs some ugly programming
+      
+        #Fix for CtlAltDel needs some ugly programming 
         my $rewrite = 0;
-        if ( $in =~ /^rewrite:(.) (.*)$/ ) {
-            $rewrite = ( $1 eq 'Y' ? 1 : 0 );
-            $in = $2;
+        if ($in =~ /^rewrite:(.) (.*)$/) { 
+          $rewrite = ( $1 eq 'Y' ? 1 : 0);
+          $in = $2;
+        } else {
+          #something must be wrong...
+          debug('Command', "No rewrite prefix fount in message in read_handler!");
         }
-        else {
-
-            #something must be wrong...
-            debug( 'Command',
-                "No rewrite prefix fount in message in read_handler!" );
+        if ($rewrite ) {
+           debug('Command' , "Rewriting to_address to unicast");
+           $command->{'to_address'} = to_unicast($command->{'to_protocol'}, $command->{'to_address'});
         }
-        if ($rewrite) {
-            debug( 'Command', "Rewriting to_address to unicast" );
-            $command->{'to_address'} =
-              to_unicast( $command->{'to_protocol'}, $command->{'to_address'} );
-        }
-
         # This ugly part was brought to you by CtlAltDel; The End :)
+        
+        my $prepend = ( exists $command->{'prepend'} ) ? $command->{'prepend'} . ' ' : '';
+        my $upcall  = $command->{'upcall'};
 
-        my $prepend =
-          ( exists $command->{'prepend'} ) ? $command->{'prepend'} . ' ' : '';
-        my $upcall = $command->{'upcall'};
-
-        my $success =
-          &$upcall( $command, "$prepend$in" );    # pass complete hashref
-             # different upcalls may need different fields
+        my $success = &$upcall( $command, "$prepend$in" );    # pass complete hashref
+                                                              # different upcalls may need different fields
         if ( defined( $command->{'notify_success'} ) and $success ) {
             &$upcall(
                 {
@@ -149,13 +141,11 @@ sub read_handler {
                 },
                 $command->{'notify_success'}
             );
-        }
-        else {
+        } else {
 
             #failure in upcall, what to do?
         }
-    }
-    else {
+    } else {
         debug( 'Command_debug', "read_handler leest niets!\n" );
     }
 }
@@ -194,40 +184,38 @@ sub protocolname {
 # supplied some or all of the arguments.
 # Code taken from Perl Cookbook(???) can't find the exact chapter...
 # Don't let the name fool you, further down the chain, the user supplied
-# arguments are still available
+# arguments are still available  
 #
-#  safe_execute( $command, $args , $level , $command_obj );
+#  safe_execute( $command, $exe, $args , $level , $command_obj );
 #
 sub safe_execute {
-    my ( $file, $argumenten, $clevel, $command_obj ) = @_;
+    my ( $command, $exe, $argumenten, $clevel, $command_obj ) = @_;
     my @out;
     my $line;
 
-    # This would be a nice spot to check the length of the arguments
+    # This would be a nice spot to check the length of the arguments 
     # On linux this should (default) not exceed 128K bytes
     # exec will fail on larger commands...
     if ( length($argumenten) > 128000 ) {
-        debug( 'Command',
-            "argument to $file exceeds 128K bytes. Not executing" );
-        return "!$file $argumenten";    #Ugly?!
+        debug( 'Command', "argument to $command exceeds 128K bytes. Not executing" );
+        return "!$command $argumenten";    #Ugly?!
     }
 
     if ( my $pid = open( CHILD, "-|" ) ) {
 
-        # This is the parent
+        # This is the parent 
         while ( ( $line = <CHILD> ) ) {
             chomp($line);
             if ( length($line) > 0 ) { push @out, $line }
         }
         close(CHILD);
-    }
-    else {
+    } else {
 
         # This is the child
         die "cannot fork: $!" unless defined $pid;
 
         # Working directory is the command's own directory
-        chdir("commands/$file");
+        chdir("commands/$command");
 
         # Setup an CGI-like environment
         # Create environment variables for our command to use
@@ -240,9 +228,9 @@ sub safe_execute {
         $ENV{'MULTI_COMMANDLEVEL'} = $clevel;
 
         #Execute!
-        exec( "./$file.pl", $argumenten ) or die "can't exec: $!";
+        exec( "./$exe", $argumenten ) or die "can't exec: $!";
     }
-    debug( 'Command_debug', "exit code: $child_exit_status" );
+    debug('Command_debug', "exit code: $child_exit_status");
     return join " \xb6", @out;
 }
 
@@ -264,8 +252,7 @@ sub cachename {
             $escaped = substr $escaped, 0, 250;
         }
         $cachefile .= $escaped;
-    }
-    else {
+    } else {
         $cachefile .= '!';
     }
     return $cachefile;
@@ -330,31 +317,35 @@ sub split_commands {
         if ( ( $item =~ /^!(\S+)/ ) ) {
             $command = lc($1);    # all commands are lowercase
 
-            if ( $command =~ /\W/ )
-            {                     # commands with non-word characters are evil
+            if ( $command =~ /\W/ ) {    # commands with non-word characters are evil
                 $args = "$item $args";    # demote to argument
                 debug( 'Command_debug', "args: $args" );
                 next;
             }
 
+            # read commandconfig, and add to record
+            my %cconfig = read_commandconfig($command);
+
             # make command record
             my $rec = {};
             $rec->{'args'}    = $args;
             $rec->{'command'} = $command;
-            $rec->{'exists'}  =
-              ( -x "commands/$command/$command.pl" ) ? 1 : 0;    # no undefs
+            if ( defined $cconfig{'exe'} ) {
+                $rec->{'exe'} = $cconfig{'exe'};
+            } else {
+                $rec->{'exe'} = "$command.pl";
+            }
+            my $exe = $rec->{'exe'};
+                                                                              
+            $rec->{'exists'}  = ( -x "commands/$command/$exe" ) ? 1 : 0;    # no undefs
             $args = '';
-
-            # read commandconfig, and add to record
-            my %cconfig = read_commandconfig($command);
 
             foreach my $key ( keys %cconfig ) {
                 $rec->{$key} = $cconfig{$key};
             }
 
             push @result, $rec;
-        }
-        else {
+        } else {
             $args = "$item $args";
             $args =~ s/^\s+//;
             debug( 'Command_debug', "args: $args" );
@@ -373,7 +364,7 @@ sub split_commands {
 
 #
 # execute a single command
-# exec_command( $command, $command_obj);
+# exec_command( $command, $command_obj); 
 sub exec_command {
     my $com         = shift;
     my $command_obj = shift;
@@ -384,6 +375,7 @@ sub exec_command {
     my $from_address  = $command_obj->{'from_address'};
 
     my $command = $com->{'command'};
+    my $exe     = $com->{'exe'};
     my $args    = $com->{'args'};
     my $exists  = $com->{'exists'};
     my $level   = $com->{'level'};
@@ -401,89 +393,68 @@ sub exec_command {
 
     unless ($exists) {
         debug( 'Command', "Unknown command: $command" );
-        account_log( $command, $realsender, $from_protocol, $from_address,
-            time(), 0, "FAILED", "Unknown command: $command" );
+        account_log( $command, $realsender, $from_protocol, $from_address, time(), 0, "FAILED", "Unknown command: $command" );
         return "!$command $args";
     }
 
     unless ( $level <= $userlevel ) {
         debug( 'Command', "Level needed for $command is $level" );
-        account_log( $command, $realsender, $from_protocol, $from_address,
-            time(), 0, "FAILED", "Level needed for $command is $level" );
+        account_log( $command, $realsender, $from_protocol, $from_address, time(), 0, "FAILED",
+            "Level needed for $command is $level" );
         return "!$command $args";
     }
 
     # check whether this user has enough credits
-    if ( defined $boxname )
-    {    #no boxname for this command -> no accounting (just logging)
+    if ( defined $boxname ) {    #no boxname for this command -> no accounting (just logging)
 
         unless ( defined check_and_withdraw( $boxname, $realsender, $units ) ) {
-            debug( 'Command',
+            debug( 'Command', "$realsender has not enough credits for $boxname" );
+            account_log( $command, $realsender, $from_protocol, $from_address, time(), 0, "FAILED",
                 "$realsender has not enough credits for $boxname" );
-            account_log(
-                $command,
-                $realsender,
-                $from_protocol,
-                $from_address,
-                time(),
-                0,
-                "FAILED",
-                "$realsender has not enough credits for $boxname"
-            );
             return "!$command $args";
         }
-    }
-    else {
+    } else {
 
         # Is this useful ?
         $boxname = $command;
     }
 
     if ( eval $cache == 0 ) {
-
         # No caching due to config..
         debug( 'Command', "No caching due to config..." );
 
-        my $content = safe_execute( $command, $args, $level, $command_obj );
+        my $content = safe_execute( $command, $exe, $args, $level, $command_obj );
 
         if ( $child_exit_status == 0 ) {
-            account_log( $command, $realsender, $from_protocol, $from_address,
-                time(), $units, "OK", "No caching" );
-        }
-        else {
-            account_log( $command, $realsender, $from_protocol, $from_address,
-                time(), $units, "FAIL", "No caching" );
+            account_log( $command, $realsender, $from_protocol, $from_address, time(), $units, "OK", "No caching" );
+        } else {
+            account_log( $command, $realsender, $from_protocol, $from_address, time(), $units, "FAIL", "No caching" );
         }
         return $content;
     }
 
     my $cachefile = cachename( $command, $args );
-    my $content   = check_cache($cachefile);
+    my $content = check_cache($cachefile);
 
     if ( defined $content ) {
 
         # cache hit!
         debug( 'Command', "Cache hit for $command." );
-        account_log( $command, $realsender, $from_protocol, $from_address,
-            time(), $units, "OK", "Cache hit" );
-    }
-    else {
+        account_log( $command, $realsender, $from_protocol, $from_address, time(), $units, "OK", "Cache hit" );
+    } else {
 
         # cache miss
         debug( 'Command', "Cache missed for $command." );
-        $content = safe_execute( $command, $args, $level, $command_obj );
+        $content = safe_execute( $command, $exe, $args, $level, $command_obj );
 
         if ( $child_exit_status == 0 ) {
-            account_log( $command, $realsender, $from_protocol, $from_address,
-                time(), $units, "OK", "Cache mis" );
+            account_log( $command, $realsender, $from_protocol, $from_address, time(), $units, "OK", "Cache mis" );
 
             # write new cache entry
             write_cache( $cachefile, $cache, $content );
-        }
-        else {
-            account_log( $command, $realsender, $from_protocol, $from_address,
-                time(), $units, "FAIL", "Cache mis" );
-        }
+        } else {
+            account_log( $command, $realsender, $from_protocol, $from_address, time(), $units, "FAIL", "Cache mis" );
+       }
     }
 
     return $content;
@@ -506,18 +477,16 @@ sub do_commands {
     my @commandolist = split_commands($msg);
     my $command;
 
-    my $min_max_lines_multicast = 10000000
-      ; #will contain the minimum value found for max_lines_multicast, initialize at insane value
+    my $min_max_lines_multicast = 10000000;  #will contain the minimum value found for max_lines_multicast, initialize at insane value
 
     foreach $command (@commandolist) {
         debug( 'Command_debug', "doing $command" );
         $command->{'args'} .= $result;
         $result = exec_command( $command, $command_obj );
-
         #check for new min_max_lines_multicast
-        if ( $command->{'max_lines_multicast'} < $min_max_lines_multicast ) {
-            $min_max_lines_multicast = $command->{'max_lines_multicast'};
-        }
+        if ($command->{'max_lines_multicast'} < $min_max_lines_multicast) {
+          $min_max_lines_multicast = $command->{'max_lines_multicast'};
+        }            
     }
 
     # some string processing to clean things up, if neccesary
@@ -532,31 +501,25 @@ sub do_commands {
 
     # Not just an '!'
     $result =~ s/^!$//;
-
+    
     # If we have a multicast message, check if it is not too many lines
     my $rewrite = 'N';
-    if ( $command_obj->{'is_multicast'} ) {
-        my $linecount = () =
-          $result =~
-          /\xb6/g;       #ugly oneliner to count number of matches in a string
-        $linecount++;    #former line has off-by-one, it counts separators :)
-        if ( $linecount > $min_max_lines_multicast ) {
-
-#rewrite to unicast address! But we are in a child, and the only way to communicate with the parent is using STDOUT :(
-            $rewrite = 'Y';
-            debug( 'Command',
-"linecount ($linecount) > min_max_lines ($min_max_lines_multicast) in multicast message"
-            );
-        }
+    if ($command_obj->{'is_multicast'}) {
+      my $linecount = () = $result =~ /\xb6/g;  #ugly oneliner to count number of matches in a string
+      $linecount++;                             #former line has off-by-one, it counts separators :)
+      if ($linecount > $min_max_lines_multicast) {
+         #rewrite to unicast address! But we are in a child, and the only way to communicate with the parent is using STDOUT :(
+         $rewrite = 'Y';
+         debug('Command', "linecount ($linecount) > min_max_lines ($min_max_lines_multicast) in multicast message");
+      }
     }
 
-    # the following print statement will cause things to happen,
+    # the following print statement will cause things to happen, 
     # the parent will see it and will act upon it...
     if ( lc($result) ne lc($msg) ) {
         debug( 'Command_debug', "All commands done. Total output is: $result" );
         print "rewrite:$rewrite $result\n";
-    }
-    else {
+    } else {
         debug( 'Command_debug', "Discarding bogus command $result" );
     }
 
