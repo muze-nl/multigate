@@ -19,6 +19,7 @@ use IO::Select;
 use POSIX;
 use URI::Escape;
 use File::stat;
+use BSD::Resource;
 
 use Multigate;
 use Multigate::Debug;
@@ -186,29 +187,49 @@ sub protocolname {
 # Don't let the name fool you, further down the chain, the user supplied
 # arguments are still available  
 #
-#  safe_execute( $command, $exe, $args , $level , $command_obj );
+#  safe_execute( $command, $command_obj );
 #
 sub safe_execute {
-    my ( $command, $exe, $argumenten, $clevel, $command_obj ) = @_;
+    my $com         = shift;
+    my $command_obj = shift;
+
+    my $command = $com->{'command'};
+    my $exe     = $com->{'exe'};
+    my $args    = $com->{'args'};
+    my $clevel  = $com->{'level'};
+
     my @out;
     my $line;
 
     # This would be a nice spot to check the length of the arguments 
     # On linux this should (default) not exceed 128K bytes
     # exec will fail on larger commands...
-    if ( length($argumenten) > 128000 ) {
+    if ( length($args) > 128000 ) {
         debug( 'Command', "argument to $command exceeds 128K bytes. Not executing" );
-        return "!$command $argumenten";    #Ugly?!
+        return "!$command $args";    #Ugly?!
     }
 
     if ( my $pid = open( CHILD, "-|" ) ) {
 
         # This is the parent 
-        while ( ( $line = <CHILD> ) ) {
-            chomp($line);
-            if ( length($line) > 0 ) { push @out, $line }
+
+        eval {
+            local $SIG{ALRM} = sub { die "alarm\n" }; # NB: \n required
+            alarm $com->{'runtime_limit'};
+
+            while ( ( $line = <CHILD> ) ) {
+                chomp($line);
+                if ( length($line) > 0 ) { push @out, $line }
+            }
+            close(CHILD);
+            alarm 0;
+        };
+        if ($@) {
+            die unless $@ eq "alarm\n";   # propagate unexpected errors
+            kill 15, $pid; # try to kill..
+            push @out, "Command !$command $args timed out";
         }
-        close(CHILD);
+
     } else {
 
         # This is the child
@@ -227,8 +248,13 @@ sub safe_execute {
         $ENV{'MULTI_IS_MULTICAST'} = $command_obj->{'is_multicast'};
         $ENV{'MULTI_COMMANDLEVEL'} = $clevel;
 
+        # setup limits
+        setrlimit(RLIMIT_VMEM, 1024*1024*$com->{'mem_limit'}, 1024*1024*$com->{'mem_limit'});
+        setrlimit(RLIMIT_CPU, $com->{'cputime_limit'}, $com->{'cputime_limit'});
+        setrlimit(RLIMIT_CORE, 0, 0); # prevent coredumps
+
         #Execute!
-        exec( "./$exe", $argumenten ) or die "can't exec: $!";
+        exec( "./$exe", $args ) or die "can't exec: $!";
     }
     debug('Command_debug', "exit code: $child_exit_status");
     return join " \xb6", @out;
@@ -390,6 +416,7 @@ sub exec_command {
     $args = '' unless ( defined $args );
     $args =~ s/^\s+//;
     $args =~ s/\s+$//;
+    $com->{'args'} = $args; # we need it further down
 
     unless ($exists) {
         debug( 'Command', "Unknown command: $command" );
@@ -423,7 +450,7 @@ sub exec_command {
         # No caching due to config..
         debug( 'Command', "No caching due to config..." );
 
-        my $content = safe_execute( $command, $exe, $args, $level, $command_obj );
+        my $content = safe_execute( $com, $command_obj );
 
         if ( $child_exit_status == 0 ) {
             account_log( $command, $realsender, $from_protocol, $from_address, time(), $units, "OK", "No caching" );
@@ -445,7 +472,7 @@ sub exec_command {
 
         # cache miss
         debug( 'Command', "Cache missed for $command." );
-        $content = safe_execute( $command, $exe, $args, $level, $command_obj );
+        $content = safe_execute( $com, $command_obj );
 
         if ( $child_exit_status == 0 ) {
             account_log( $command, $realsender, $from_protocol, $from_address, time(), $units, "OK", "Cache mis" );
