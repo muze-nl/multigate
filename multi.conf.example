@@ -19,17 +19,18 @@ restart_protocols = irc icq msn
 restart_timeout = 90
 
 godlevel = 1000
-atlevel = 99
+atlevel = 100
 protocollevel = 100
 msglevel = 100
 
-max_message_length = 2048   # max bytes written to wrapper (including header)
+# max bytes written to wrapper (including header)
+max_message_length = 2048 # half a pipe on linux
 
-#development version (1) or not (0)
+# Development version (1) or not (0)
 dev = 0
 
 # Use CommandSimple for command-expansion
-simple_command = 0
+simple_command = 0 # 0 = No; 1 = Yes
 
 #database
 db_passwd = xxxxx
