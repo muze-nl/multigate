@@ -1,8 +1,10 @@
 #!/usr/bin/perl -w
 
 use strict;
+use Cwd;
 
-my $dirname  = "/home/multilink/multigate/commands/";
+chdir('..');
+my $dirname  = getcwd();
 my $helpfile = shift @ARGV;
 my @topics   = ();
 my $file;
