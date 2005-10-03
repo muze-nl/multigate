@@ -7,14 +7,15 @@
 #
 
 use strict;
+my $multiroot;
 
-#
-# globals
-#
-
-use lib "/home/multilink/multigate/lib";
-
-my $multiroot = '/home/multilink/multigate';
+BEGIN {
+	use Cwd;
+	use FindBin;
+	use lib "$FindBin::Bin/lib";
+	chdir("$FindBin::Bin/") or die "Cannot cd to multiroot(which is bad)";
+	$multiroot = cwd();
+}
 
 
 #
@@ -45,7 +46,6 @@ my @protocols = split " ", $protocolline;
 #
 # init
 #
-chdir($multiroot) or die "Cannot cd $multiroot:";
 $ENV{MULTI_ROOT} = $multiroot;
 
 
