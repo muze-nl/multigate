@@ -132,9 +132,9 @@ EOT
 
     foreach (@$allusers) {
         ( $un, $irl, $ul, $bd, $bt ) = @$_;
-        $irl = '*unkown*' unless $irl;
-        $bd  = '*unkown*' unless $bd;
-        $bt  = '*unkown*' unless $bt;
+        $irl = '*unknown*' unless $irl;
+        $bd  = '*unknown*' unless $bd;
+        $bt  = '*unknown*' unless $bt;
         print <<"EOT";
 <tr>
 <td>$un</td>
@@ -307,9 +307,9 @@ WHERE
   username LIKE ?
 EOT
 
-    $irl = '*unkown*' unless $irl;
-    $bd  = '*unkown*' unless $bd;
-    $bt  = '*unkown*' unless $bt;
+    $irl = '*unknown*' unless $irl;
+    $bd  = '*unknown*' unless $bd;
+    $bt  = '*unknown*' unless $bt;
 
     printheader();
     print <<"EOT";
@@ -505,9 +505,9 @@ WHERE
   username LIKE ?
 EOT
 
-    $irl = '*unkown*' unless $irl;
-    $bd  = '*unkown*' unless $bd;
-    $bt  = '*unkown*' unless $bt;
+    $irl = '*unknown*' unless $irl;
+    $bd  = '*unknown*' unless $bd;
+    $bt  = '*unknown*' unless $bt;
 
     printheader();
     print <<"EOT";
