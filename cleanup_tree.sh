@@ -14,5 +14,5 @@ find . -type d -name .svn -prune -o -name '*.pl' -exec perltidy '{}' ';' -and -e
 find . -type d -name .svn -prune -o -name '*.pm' -exec perltidy '{}' ';' -and -exec /usr/bin/test ! -f '{}.ERR' ';' -and -exec /bin/mv -f '{}.tdy' '{}' ';'
 
 # Overgebleven .ERR en tdy weghalen
-find . -type d -name .svn -prune -o -name '*.ERR' | xargs --no-run-if-empty /bin/rm
-find . -type d -name .svn -prune -o -name '*.tdy' | xargs --no-run-if-empty /bin/rm
+find . -type d -name .svn -prune -o -name '*.ERR' -print | xargs --no-run-if-empty /bin/rm
+find . -type d -name .svn -prune -o -name '*.tdy' -print | xargs --no-run-if-empty /bin/rm
