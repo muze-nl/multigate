@@ -23,7 +23,7 @@ package Multigate::Users;
 #
 
 use strict;
-use vars qw( @ISA @EXPORT $VERSION $dbh );
+use vars qw( @ISA @EXPORT $VERSION );
 use Exporter;
 use DBI;
 use FileHandle;
@@ -46,6 +46,17 @@ $VERSION = '2';
   authorize_expenditure commit_expenditure check_and_withdraw
   init_users_module cleanup_users_module );
 
+# returns a working $dbh, we hope
+sub get_dbh {
+    my $password = getconf('db_passwd');
+    my $db_user  = getconf('db_user');
+    my $database = getconf('db_name');
+    my $dbh      = DBI->connect_cached( 'DBI:mysql:' . $database,
+        $db_user, $password, { RaiseError => 0, AutoCommit => 1 } );
+    return 0 unless defined $dbh;
+    return $dbh;
+}
+
 #
 # Call this before any of the others..
 # Returns errorstring on failure, 0 on succes...
@@ -57,8 +68,7 @@ sub init_users_module {
     my $password = getconf('db_passwd');
     my $db_user  = getconf('db_user');
     my $database = getconf('db_name');
-    $dbh = DBI->connect( 'DBI:mysql:' . $database,
-        $db_user, $password, { RaiseError => 0, AutoCommit => 1 } );
+    my $dbh      = get_dbh();
     return DBI::errstr unless defined $dbh;
     return 0;
 }
@@ -67,6 +77,7 @@ sub init_users_module {
 # Call this just before process exit
 #
 sub cleanup_users_module {
+    my $dbh = get_dbh();
     if ( defined $dbh ) {
         $dbh->disconnect;
 
@@ -84,6 +95,7 @@ sub cleanup_users_module {
 sub aliastouser {
     my $alias = shift;
     return '' unless $alias;
+    my $dbh = get_dbh();
     my $res = $dbh->selectrow_array( <<'EOT', {}, $alias );
 SELECT
   username
@@ -106,6 +118,7 @@ EOT
 sub get_user {
     my ( $protocol, $address ) = @_;
     return undef unless $protocol and $address;
+    my $dbh = get_dbh();
     my @res = $dbh->selectrow_array( <<'EOT', {}, $protocol, $address );
 SELECT
   user.username, user.level
@@ -127,6 +140,7 @@ EOT
 sub get_address {
     my ( $user, $protocol ) = @_;
     return undef unless $user and $protocol;
+    my $dbh = get_dbh();
     $user = aliastouser($user);
     my @res = $dbh->selectrow_array( <<'EOT', {}, $user, $protocol );
 SELECT
@@ -160,6 +174,7 @@ sub get_userlevel {
     my ($user) = @_;
     return 0 unless $user;
     $user = aliastouser($user);
+    my $dbh = get_dbh();
     my $res = $dbh->selectrow_array( <<'EOT', {}, $user );
 SELECT
   level
@@ -185,6 +200,7 @@ sub user_exists {
     my $user = shift;
     return 0 unless $user;
     $user = aliastouser($user);
+    my $dbh = get_dbh();
     my $res = $dbh->selectrow_array( <<'EOT', {}, $user );
 SELECT
   count(*)
@@ -202,6 +218,7 @@ EOT
 sub protocol_exists {
     my $protocol = shift;
     return 0 unless $protocol;
+    my $dbh = get_dbh();
     my $res = $dbh->selectrow_array( <<'EOT', {}, $protocol );
 SELECT
   count(*)
@@ -219,6 +236,7 @@ EOT
 sub group_exists {
     my $group = shift;
     return 0 unless $group;
+    my $dbh = get_dbh();
     my $res = $dbh->selectrow_array( <<'EOT', {}, $group );
 SELECT
   count(*)
@@ -243,6 +261,7 @@ EOT
 sub add_protocol {
     my ($protocol) = @_;
     return 0 unless $protocol;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $protocol );
 INSERT INTO
   protocol (protocol)
@@ -259,6 +278,7 @@ sub remove_protocol {
     my ($protocol) = @_;
     return 0 unless $protocol;
     my $res;
+    my $dbh = get_dbh();
     $res = $dbh->do( <<'EOT', {}, $protocol );
 DELETE FROM
   protocol
@@ -281,6 +301,7 @@ EOT
 sub get_protocol_level {
     my ($protocol) = @_;
     return unless $protocol;
+    my $dbh = get_dbh();
     my $res = $dbh->selectrow_array( <<'EOT', {}, $protocol );
 SELECT
   level
@@ -298,6 +319,7 @@ EOT
 sub set_protocol_level {
     my ( $protocol, $level ) = @_;
     return unless $protocol and $level;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $level, $protocol );
 UPDATE
   protocol
@@ -315,6 +337,7 @@ EOT
 sub get_protocol_maxmsgsize {
     my ($protocol) = @_;
     return unless $protocol;
+    my $dbh = get_dbh();
     my $res = $dbh->selectrow_array( <<'EOT', {}, $protocol );
 SELECT
   maxmsgsize
@@ -332,6 +355,7 @@ EOT
 sub set_protocol_maxmsgsize {
     my ( $protocol, $maxmsgsize ) = @_;
     return unless $protocol and $maxmsgsize;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $maxmsgsize, $protocol );
 UPDATE
   protocol
@@ -351,6 +375,7 @@ EOT
 sub add_user {
     my ( $username, $level ) = @_;
     return unless $username and $level;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $username, $level );
 INSERT INTO
   user (username, level)
@@ -367,6 +392,7 @@ sub remove_user {
     my ($username) = @_;
     return unless $username;
     my $res;
+    my $dbh = get_dbh();
     $res = $dbh->do( <<'EOT', {}, $username );
 DELETE FROM
   user
@@ -389,6 +415,7 @@ EOT
 sub remove_alias {
     my ($alias) = @_;
     return unless $alias;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $alias );
 DELETE FROM
   alias
@@ -405,6 +432,7 @@ EOT
 sub add_alias {
     my ( $alias, $username ) = @_;
     return unless $alias and $username;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $alias, $username );
 INSERT INTO
   alias (alias, username)
@@ -421,6 +449,7 @@ EOT
 sub change_userlevel {
     my ( $username, $level ) = @_;
     return unless $username and $level;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $level, $username );
 UPDATE
   user
@@ -443,6 +472,7 @@ sub new_address {
     return unless $user and $protocol and $address;
     $user = aliastouser($user);
     my $res;
+    my $dbh = get_dbh();
     $res = $dbh->do( <<'EOT', {}, $user, $protocol );
 UPDATE
   address
@@ -454,7 +484,7 @@ WHERE
   main_address = 'true'
 EOT
 
-    #	return unless $res;
+    #    return unless $res;
     $res = $dbh->do( <<'EOT', {}, $user, $protocol, $address );
 INSERT INTO
   address (username, protocol, address, main_address)
@@ -474,6 +504,7 @@ sub add_address {
     return unless $user and $protocol and $address;
     $user = aliastouser($user);
     my $res;
+    my $dbh = get_dbh();
     $res = $dbh->do( <<'EOT', {}, $user, $protocol, $address );
 INSERT INTO
   address (username, protocol, address, main_address)
@@ -491,6 +522,7 @@ sub set_main_address {
     return 0 unless $user and $protocol and $address;
     $user = aliastouser($user);
     my $res;
+    my $dbh = get_dbh();
     $res = $dbh->do( <<'EOT', {}, $user, $protocol );
 UPDATE 
    address 
@@ -526,6 +558,7 @@ sub remove_address {
     return unless $user and $protocol and $address;
     $user = aliastouser($user);
     my $res;
+    my $dbh = get_dbh();
     $res = $dbh->do( <<'EOT', {}, $user, $protocol, $address );
 DELETE FROM
   address
@@ -545,6 +578,7 @@ sub add_group_member {
     return unless $group and $user;
     $user = aliastouser($user);
     my $res;
+    my $dbh = get_dbh();
     $res = $dbh->do( <<'EOT', {}, $group, $user );
 INSERT INTO
   herd (herdname, username, shepherd)
@@ -562,6 +596,7 @@ sub remove_group_member {
     return unless $group and $user;
     $user = aliastouser($user);
     my $res;
+    my $dbh = get_dbh();
     $res = $dbh->do( <<'EOT', {}, $user, $group );
 DELETE FROM
   herd
@@ -578,6 +613,7 @@ EOT
 sub get_group_members {
     my ($group) = @_;
     return () unless $group;
+    my $dbh = get_dbh();
     unless ( defined $dbh ) { die "dbh undefined" }
     my $res = $dbh->selectcol_arrayref( <<'EOT', {}, $group );
 SELECT
@@ -594,6 +630,7 @@ EOT
 #
 #
 sub list_groups {
+    my $dbh = get_dbh();
     my $res = $dbh->selectcol_arrayref( <<'EOT', {} );
 SELECT
   DISTINCT(herdname)
@@ -610,6 +647,7 @@ sub user_in_group {
     my ( $group, $user ) = @_;
     $user = aliastouser($user);
     return 0 unless ( $group and $user );
+    my $dbh = get_dbh();
     my $res = $dbh->selectrow_array( <<'EOT', {}, $group, $user );
 SELECT
   COUNT(*)
@@ -629,6 +667,7 @@ sub get_group_admin_flag {
     my ( $group, $user ) = @_;
     return 'no' unless $group and $user;
     $user = aliastouser($user);
+    my $dbh = get_dbh();
     my $res = $dbh->selectrow_array( <<'EOT', {}, $user, $group );
 SELECT
   shepherd
@@ -650,6 +689,7 @@ sub set_group_admin_flag {
     return unless $group and $user;
     $user = aliastouser($user);
     my $res;
+    my $dbh = get_dbh();
     $res = $dbh->do( <<'EOT', {}, $user, $group );
 UPDATE
   herd
@@ -671,6 +711,7 @@ sub unset_group_admin_flag {
     return unless $group and $user;
     $user = aliastouser($user);
     my $res;
+    my $dbh = get_dbh();
     $res = $dbh->do( <<'EOT', {}, $user, $group );
 UPDATE
   herd
@@ -691,6 +732,7 @@ sub get_preferred_protocol {
     my ($user) = @_;
     $user = aliastouser($user);
     return unless $user;
+    my $dbh = get_dbh();
     my $res = $dbh->selectrow_array( <<'EOT', {}, $user );
 SELECT
   protocol
@@ -708,6 +750,7 @@ EOT
 sub set_preferred_protocol {
     my ( $username, $protocol ) = @_;
     return unless $username and $protocol;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $protocol, $username );
 REPLACE INTO
   prefprot
@@ -724,6 +767,7 @@ EOT
 sub unset_preferred_protocol {
     my ($username) = @_;
     return unless $username;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $username );
 DELETE FROM
   prefprot
@@ -740,6 +784,7 @@ sub get_group_protocol {
     my ( $group, $user ) = @_;
     $user = aliastouser($user);
     return unless $group and $user;
+    my $dbh = get_dbh();
     my $res = $dbh->selectrow_array( <<'EOT', {}, $group, $user );
 SELECT
   protocol
@@ -759,6 +804,7 @@ sub set_group_protocol {
     my ( $groupname, $username, $protocol ) = @_;
     $username = aliastouser($username);
     return unless $groupname and $username and $protocol;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $protocol, $groupname, $username );
 UPDATE
    herd  
@@ -778,6 +824,7 @@ sub unset_group_protocol {
     my ( $groupname, $username ) = @_;
     $username = aliastouser($username);
     return unless $username and $groupname;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $groupname, $username );
 UPDATE
    herd    
@@ -797,6 +844,7 @@ sub add_box {
     my ( $boxname, $user ) = @_;
     $user = aliastouser($user);
     return unless $boxname and $user;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $boxname, $user );
 INSERT INTO
   box ( boxname, username, contents)  
@@ -813,6 +861,7 @@ sub remove_box {
     my ( $boxname, $user ) = @_;
     $user = aliastouser($user);
     return unless $boxname and $user;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $boxname, $user );
 DELETE FROM
   box
@@ -830,6 +879,7 @@ sub get_box {
     my ( $boxname, $user ) = @_;
     $user = aliastouser($user);
     return unless $boxname and $user;
+    my $dbh = get_dbh();
     my $res = $dbh->selectrow_array( <<'EOT', {}, $user, $boxname );
 SELECT
   contents
@@ -849,6 +899,7 @@ sub inc_box {
     my ( $boxname, $user, $units ) = @_;
     $user = aliastouser($user);
     return unless $boxname and $user;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $units, $user, $boxname );
 UPDATE 
   box 
@@ -869,6 +920,7 @@ sub dec_box {
     my ( $boxname, $user, $units ) = @_;
     $user = aliastouser($user);
     return unless $boxname and $user;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $units, $user, $boxname );
 UPDATE      
   box 
@@ -888,6 +940,7 @@ sub set_box {
     my ( $boxname, $user, $units ) = @_;
     $user = aliastouser($user);
     return unless $boxname and $user;
+    my $dbh = get_dbh();
     my $res = $dbh->do( <<'EOT', {}, $user, $boxname, $units );
 REPLACE INTO
   box (username, boxname, contents)
