@@ -15,10 +15,6 @@
 # * Subject: \!.*
 # /home/multilink/multigate/modules/email/email.fifo
 #-----------------------
-# pipe:
-#
-# [~/multigate/wrappers/email]$ mkfifo email.fifo
-#
 
 use Mail::Mailer;
 use IO::Select;
@@ -79,6 +75,13 @@ sub send_email {
 
     debug( 'email_debug', "Email-Wrapper: sent mail to $address" );
 }
+
+unless (-p $fifo) {
+   #no fifo available, let's create it ourselves
+   require POSIX;
+   POSIX::mkfifo($fifo, 0666) or die "unable to create fifo \"$fifo\": $!";
+}
+
 
 open( FIFO, "+< $fifo" ) or die $!;
 
