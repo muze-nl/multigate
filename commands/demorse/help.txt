@@ -1,3 +1,0 @@
-demorse -- Translate something from morse code into plain text
-usage: demorse [string]
-string: set of dots and lines separated by spaces.

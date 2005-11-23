@@ -1,1 +1,0 @@
-Maakt van alle letters in de invoer kleine letters.

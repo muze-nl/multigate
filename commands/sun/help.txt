@@ -1,2 +1,0 @@
-Calculates sunrise and sunset times for a lot of places around the world.
-The answer is given in de local time of the machine running this bot.

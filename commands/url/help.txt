@@ -1,1 +1,0 @@
-Geeft de url waarin de op het kanaal langsgekomen url's verzameld zijn. 

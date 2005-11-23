@@ -1,1 +1,0 @@
-jargon [query] - searches the jargon file entry for [query]
