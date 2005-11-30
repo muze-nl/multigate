@@ -918,8 +918,7 @@ sub handle_incoming {
             #the something will be parsed here
 
        #format: #channel!nick!user@host message , this should go to #channel
-       #FIXME: this only matches channels that just contain normal characters...
-            if ( $to_parse =~ /^(#\w+)!(.*?)!(.*?)\s(.*)/ ) {
+            if ( $to_parse =~ /^(#[^!]+)!(.*?)!(.*?)\s(.*)/ ) {
                 $channel     = $1;
                 $destination = $2;
                 $userhost    = $3;
