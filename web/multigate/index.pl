@@ -13,6 +13,9 @@ use strict;
 use vars qw( $r $user $level %args $dbh );
 use Apache::Util qw( escape_html );
 use FileHandle;
+use lib '../../lib';
+use Multigate::Config qw( getconf readconfig );
+use Multigate::Users;
 
 #
 # ---------------------------------------------------------
@@ -40,18 +43,18 @@ $user = $r->connection->user;
 
 $fh = new FileHandle;
 
-if ( ( open $fh, '< /home/multilink/.multigatepassword' ) ) {
-    $password = <$fh>;
-    chomp $password;
-    close $fh;
-}
-else {
-    $password = '';
-}
+readconfig("../../multi.conf");    #allowed this way?
+my $password = getconf('db_passwd');
+my $db_user  = getconf('db_user');
+my $database = getconf('db_name');
+$dbh = DBI->connect( 'DBI:mysql:' . $database,
+    $db_user, $password, { RaiseError => 0, AutoCommit => 1 } );
 
-$dbh = DBI->connect( 'DBI:mysql:multigate', 'multilink', $password );
-
-die "Cannot access database" unless defined $dbh;
+if ( !defined $dbh ) {
+    print STDERR DBI::errstr;
+    exit 0;
+}
+ 
 
 $level = $dbh->selectrow_array( <<'EOT', {}, $user );
 SELECT
@@ -767,6 +770,10 @@ EOT
 sub salt {
     my @saltset = ( 0 .. 9, 'A' .. 'Z', 'a' .. 'z', '.', '/' );
     return join '', @saltset[ rand @saltset, rand @saltset ];
+}
+
+if ( defined $dbh ) {
+    $dbh->disconnect;
 }
 
 1;    # You never know...
