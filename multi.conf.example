@@ -55,7 +55,7 @@ irc_channel = multidev     #irc wrapper will add the "#" in front off channel
 irc_version =  Multigate irc wrapper; www.multigator.net  
 
 #broadcast urls mentioned on irc
-irc_urlspam = 1
+irc_urlspam = 0
 
 icq_number = xxxxx  #real multi number
 icq_pass = xxxxx
