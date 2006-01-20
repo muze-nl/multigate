@@ -99,6 +99,15 @@ sub read_handler {
 }
 
 #
+# This can be asked to wrappers, but also to other objects...
+# FIXME: should we do this?
+#
+sub protocolname {
+    return "Console";
+}
+    
+
+#
 #
 #
 sub close_handler {
