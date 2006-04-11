@@ -1095,7 +1095,7 @@ $conn->add_handler( 'quit',     \&on_quit );
 
 $conn->add_global_handler( [ 251, 252, 253, 254, 302, 255 ], \&on_init );
 $conn->add_global_handler( 'disconnect', \&on_disconnect );
-$conn->add_global_handler( 376,          \&on_connect );
+$conn->add_global_handler( [376, 422 ]   \&on_connect );
 $conn->add_global_handler( [433, 437 ],  \&on_nick_taken );
 $conn->add_global_handler( 353,          \&on_names );
 $conn->add_global_handler( 302,          \&on_userhost_reply );
