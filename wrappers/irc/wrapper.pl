@@ -1,11 +1,13 @@
 #!/usr/bin/perl -w
 #
+# (C) 2000 - 2005 Wieger Opmeer, Casper Joost Eyckelhof, Yvo Brevoort
+#
+# This package is free software; you can redistribute it and/or modify it
+# under the terms of the "Artistic License".
+#
 #  Based on: irctest
 #     (Sample Net::IRC script that starts a vapid little annoybot.)
 #
-#  Heavily edited by Casper Joost Eyckelhof (Titanhead)
-#  To create a very simple bot, which can serve as a frontend to multigate
-#  October 2000 until February 2001 (and further...)
 
 use strict;
 use lib 'lib/';
@@ -28,12 +30,15 @@ readconfig('multi.conf');    # reread config file on wrapper start
 my $dev = getconf('dev');    #development version does not capture url's
 
 my @channels = split /\s+/, getconf('irc_channel');
-map { $_ = "#" . $_ if ( $_ =~ /^\w/ ) } @channels;    #default start channel with #
-map { $_ = lc($_) } @channels;                         #all channels lower case
+map { $_ = "#" . $_ if ( $_ =~ /^\w/ ) }
+  @channels;                 #default start channel with #
+map { $_ = lc($_) } @channels;    #all channels lower case
 
-my $versionstring = getconf('irc_version');            # reply to CTCP Version
+my $versionstring = getconf('irc_version');    # reply to CTCP Version
 my $nick          = getconf('irc_nick');
 my $server        = getconf('irc_server');
+my $port          = getconf('irc_port');
+my $bindaddr      = getconf('irc_bindaddr');
 
 # Flush early
 $| = 1;
@@ -70,11 +75,11 @@ Multigate::Users::init_users_module();
 
 my $conn = $irc->newconn(
     Server    => $server,
-    Port      => 6663,
+    Port      => $port,
     Nick      => $nick,
     Ircname   => 'Multigate',
     Username  => 'multilink',
-    LocalAddr => 'ringbreak.dnd.utwente.nl'
+    LocalAddr => $bindaddr
   )
   or die "IRC: Can't connect to IRC server.\n";
 
@@ -90,18 +95,24 @@ my %opqueues = ();
 my %sendqueue = ();    # $destination => @lines
 
 ## Open the logfiles
-my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) = localtime(time);
-my $month = ( 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' )[$mon];
+my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
+  localtime(time);
+my $month = (
+    'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+    'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+)[$mon];
 $year += 1900;
 my $logdate    = $mday . $month . $year;
 my $currentday = $mday;
 my %logfiles   = ();
 
 foreach my $chan (@channels) {
-    $chan = lc($chan);    # all logiles in lowercase, even with mixed case channel names
+    $chan =
+      lc($chan);  # all logiles in lowercase, even with mixed case channel names
     $logfiles{$chan} = IO::File->new();
     debug( "irc", "Trying to open logfile for $chan" );
-    $logfiles{$chan}->open(">>$logdir/$chan\.$logdate") or debug( "irc", "Error opening $logfiles{$chan}" );
+    $logfiles{$chan}->open(">>$logdir/$chan\.$logdate")
+      or debug( "irc", "Error opening $logfiles{$chan}" );
     $logfiles{$chan}->autoflush(1);
 }
 
@@ -156,8 +167,8 @@ sub catch_alarm {
 
         #...which will be lost here
 
-        #remove duplicates (caused by people on multiple channels that we join...)
-        #thanks to cookbook:
+      #remove duplicates (caused by people on multiple channels that we join...)
+      #thanks to cookbook:
         my %seen = ();
         my @uniq = grep { !$seen{$_}++ } @opjes;
 
@@ -183,11 +194,15 @@ sub logfile {
     }
 
     #we need to know the time etc:
-    ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) = localtime(time);
+    ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
+      localtime(time);
 
     #The day may have ended...
     if ( $mday != $currentday ) {
-        $month = ( 'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec' )[$mon];
+        $month = (
+            'Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun',
+            'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec'
+        )[$mon];
         $year += 1900;
         $logdate = $mday . $month . $year;
         foreach my $chan (@channels) {
@@ -203,7 +218,7 @@ sub logfile {
         $currentday = $mday;
     }
 
-    #prettify   
+    #prettify
     if ( $hour < 10 ) { $hour = "0" . $hour }
     if ( $min < 10 )  { $min  = "0" . $min }
     $logfiles{$channel}->print("[$hour:$min] $logline");
@@ -224,17 +239,20 @@ sub urlgrab {
     if ( $line =~ /(http:\/\/\S+)/i ) {
         $url = $1;
         $line =~ s/http:\/\/\S+/<a href=\"$url\">$url<\/a>/i;
-    } elsif ( $line =~ /(www\.\S+)/i ) {
+    }
+    elsif ( $line =~ /(www\.\S+)/i ) {
         $url = $1;
         $line =~ s/www\.\S+/<a href=\"http:\/\/$url\">$url<\/a>/i;
-    } elsif ( $line =~ /ftp:\/\/(\S+)/i ) {
+    }
+    elsif ( $line =~ /ftp:\/\/(\S+)/i ) {
         $url = $1;
         $line =~ s/ftp:\/\/\S+/<a href=\"ftp:\/\/$url\">ftp:\/\/$url<\/a>/i;
     }
 
     #print "URL: $url\n";
     if ( defined($url) && ( $url !~ /pooierphonies\.html/ ) ) {
-        ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) = localtime(time);
+        ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
+          localtime(time);
         if ( $hour < 10 ) { $hour = "0" . $hour }
         if ( $min < 10 )  { $min  = "0" . $min }
         if ( $mon < 10 )  { $mon  = "0" . $mon }
@@ -263,11 +281,13 @@ sub urlgrab {
         close URLFILE;
 
         if ( getconf('irc_urlspam') ) {
+
             #send url to multigate
             # origline contains &gt; &lt;
             $origline =~ s/&gt;/>/;
             $origline =~ s/&lt;/</;
-            print STDOUT "INCOMING irc 2system!system\@local !msg urlcatcher $origline\n";
+            print STDOUT
+              "INCOMING irc 2system!system\@local !msg urlcatcher $origline\n";
         }
     }
 }
@@ -288,19 +308,24 @@ sub adduser {
     #Now lets check his userlevel according to multigate
     my ( $id, $level ) = Multigate::Users::get_user( "irc", "$nick!$userhost" );
 
-    #We probably need a lot of sanity checking here, but what the hell, we do it later
+#We probably need a lot of sanity checking here, but what the hell, we do it later
     if ( $level >= 100 ) {
 
         #this person deserves operator status!
-        debug( 'irc', "This $nick $userhost ($id) deserves operator status on $channel" );
+        debug( 'irc',
+            "This $nick $userhost ($id) deserves operator status on $channel" );
         $operators{$channel}{$nick} = 1;
         push @{ $opqueues{$channel} }, $nick;
-        alarm(5);    #wait 4 to 5 seconds, if called within 5 seconds, it's reset at 5
-    } else {
+        alarm(5)
+          ;    #wait 4 to 5 seconds, if called within 5 seconds, it's reset at 5
+    }
+    else {
 
         #We do not like this person :)
         $operators{$channel}{$nick} = 0;
-        debug( 'irc', "This $nick $userhost ($id) does not deserve operator status on $channel" );
+        debug( 'irc',
+"This $nick $userhost ($id) does not deserve operator status on $channel"
+        );
     }
 }
 
@@ -330,9 +355,11 @@ sub getnick {
     }
     my %sresu = reverse %users;
     if ( defined $sresu{$userhost} && !( defined $users{$oldnick} ) ) {
-        debug( 'irc_debug', "irc: " . $sresu{$userhost} . " will be used instead of $oldnick" );
+        debug( 'irc_debug',
+            "irc: " . $sresu{$userhost} . " will be used instead of $oldnick" );
         return $sresu{$userhost};
-    } else {
+    }
+    else {
         return $oldnick;
     }
 }
@@ -358,11 +385,11 @@ sub on_connect {
 sub on_init {
     my ( $self, $event ) = @_;
     my (@args) = ( $event->args );
-    shift (@args);
+    shift(@args);
 }
 
 # What to do when someone leaves a channel the bot is on.
-# Mostly bookkeeping 
+# Mostly bookkeeping
 sub on_part {
     my ( $self, $event ) = @_;
     my $leavingnick = ( $event->args )[0];
@@ -386,8 +413,8 @@ sub on_kick {
     my $channel    = ( $event->args )[0];
     my $reason     = ( $event->args )[1];
 
-    # from is the kicker!userhost, args[0] is the channel and args[1]  the kickmessage
-    # get rid of this nick in the usertables
+# from is the kicker!userhost, args[0] is the channel and args[1]  the kickmessage
+# get rid of this nick in the usertables
     delete $users{$channel}{$kickednick};
     delete $operators{$channel}{$kickednick};
 
@@ -399,7 +426,8 @@ sub on_kick {
     if ( lc($kickednick) eq lc($nick) ) {
         sleep( $recon_current + rand($recon_inc) );    #no auto-reconnect ;)
         $conn->join( lc($channel) );
-        debug( 'irc', "We were kicked by $kicker ($reason). Attempting to rejoin..." );
+        debug( 'irc',
+            "We were kicked by $kicker ($reason). Attempting to rejoin..." );
     }
 }
 
@@ -409,7 +437,7 @@ sub on_join {
     my ($channel) = ( $event->to )[0];
     my ( $nick, $userhost ) = ( $event->nick, $event->userhost );
 
-    # Add this user to the userlist     
+    # Add this user to the userlist
     adduser( $channel, $nick, $userhost );
     logfile( $channel, "$nick ($userhost) joined $channel.\n" );
 }
@@ -426,7 +454,7 @@ sub on_names {
     debug( 'irc', "Users on $channel: $list[0]" );
     my @nicklist = split /\s/, $list[0];
 
-    #add to %users with unknown user@host    
+    #add to %users with unknown user@host
     foreach my $nick (@nicklist) {
         $users{$channel}{$nick} = 'nobody@nowhere.org';
     }
@@ -443,7 +471,7 @@ sub on_names {
 
 # Handles user_host_replies from the server (that we initiated)
 # I guess we can trust the server, so we use these replies to update our
-# user table. 
+# user table.
 
 sub on_userhost_reply {
     my ( $self,   $event )     = @_;
@@ -525,8 +553,9 @@ sub on_mode {
     my @args       = $event->args;
     my $nick       = $event->nick;
     my $channel    = ( $event->to )[0];
-    my $modestring = shift @args;         #what can it contain? +,-,o,v,b,s,n,t,k and much more
-                                          #some have arguments, some don't :(
+    my $modestring =
+      shift @args;    #what can it contain? +,-,o,v,b,s,n,t,k and much more
+                      #some have arguments, some don't :(
 
     #The modes that we know; 0 => no argument; 1 => argument
     my %modes = (
@@ -550,16 +579,19 @@ sub on_mode {
     foreach $c ( split //, $modestring ) {
         if ( $c eq '+' ) {
             $add = 1;
-        } elsif ( $c eq '-' ) {
+        }
+        elsif ( $c eq '-' ) {
             $add = 0;
-        } elsif ( defined $modes{$c} ) {    #we know this mode
-            if ( $modes{$c} ) {    #this mode has an argument
+        }
+        elsif ( defined $modes{$c} ) {    #we know this mode
+            if ( $modes{$c} ) {           #this mode has an argument
                 my $argument = shift @args;
                 if ( $c eq 'o' ) {
                     $operators{$channel}{$argument} = $add;
                 }
             }
-        } else {
+        }
+        else {
 
             #unparsable mode string detected
             debug( 'irc', "modestring \"$modestring\" not recognized" );
@@ -584,20 +616,25 @@ sub on_nick {
     $newnick = ( $event->args )[0];
 
     foreach my $channel ( keys %users ) {
-        if ( defined $users{$channel}{$oldnick} ) {    #user is actually on that channel
-            if ( $operators{$channel}{$oldnick} ) {    #deze heeft al ops, zelf adduser dingetjes doen:
+        if ( defined $users{$channel}{$oldnick} )
+        {    #user is actually on that channel
+            if ( $operators{$channel}{$oldnick} )
+            {    #deze heeft al ops, zelf adduser dingetjes doen:
                 $userhost =~ s/^[\+\-\^\~]*//;
                 $users{$channel}{$newnick}     = $userhost;
                 $operators{$channel}{$newnick} = 1;
-                debug( 'irc_debug', "$oldnick is now known as $newnick. Already has ops" );
-            } else {
+                debug( 'irc_debug',
+                    "$oldnick is now known as $newnick. Already has ops" );
+            }
+            else {
                 adduser( $channel, $newnick, $userhost );
-                debug( 'irc_debug', "$oldnick is now known as $newnick. No ops?" );
+                debug( 'irc_debug',
+                    "$oldnick is now known as $newnick. No ops?" );
             }
 
             #altijd oude nick weggooien
             removeuser( $channel, $oldnick );
-            logfile( $channel,    "$old is now known as $newnick.\n" );
+            logfile( $channel, "$old is now known as $newnick.\n" );
         }
     }
 }
@@ -617,11 +654,19 @@ sub on_action {
 # Reconnect to the server when we die.
 sub on_disconnect {
     my ( $self, $event ) = @_;
-    debug( 'irc', "Disconnected from ", $event->from(), " (", ( $event->args() )[0], "). Attempting to reconnect..." );
+    debug(
+        'irc', "Disconnected from ",
+        $event->from(), " (",
+        ( $event->args() )[0],
+        "). Attempting to reconnect..."
+    );
 
     foreach my $channel (@channels) {
         logfile( $channel,
-            "Disconnected from " . $event->from() . " (" . ( $event->args() )[0] . "). Attempting to reconnect...\n" );
+                "Disconnected from "
+              . $event->from() . " ("
+              . ( $event->args() )[0]
+              . "). Attempting to reconnect...\n" );
     }
 
     while ( !$self->connected() ) {
@@ -633,7 +678,7 @@ sub on_disconnect {
     $recon_current = $recon_start;
 }
 
-# Look at the topic for a channel you join.  
+# Look at the topic for a channel you join.
 sub on_topic {
     my ( $self, $event ) = @_;
     my ($nick) = $event->nick;
@@ -645,11 +690,15 @@ sub on_topic {
 
         # print "No topic set for $args[1].\n";
         # If it's being done _to_ the channel, it's a topic change.
-    } elsif ( ( $event->type() eq 'topic' ) and ( $event->to()->[0] ne '' ) ) {
-        logfile( $event->to()->[0], "Topic change for " . $event->to()->[0] . " by $nick : $arg\n" );
+    }
+    elsif ( ( $event->type() eq 'topic' ) and ( $event->to()->[0] ne '' ) ) {
+        logfile( $event->to()->[0],
+            "Topic change for " . $event->to()->[0] . " by $nick : $arg\n" );
         urlgrab("&lt;$nick&gt; $arg");
+
         #print STDERR Dumper($event);
-    } else {
+    }
+    else {
 
         # print "The topic for $args[1] is \"$args[2]\".\n";
     }
@@ -658,8 +707,8 @@ sub on_topic {
 # What to do when we receive a private PRIVMSG.
 sub on_msg {
     my ( $self, $event ) = @_;
-    my ($nick) = $event->nick;
-    my ($arg)  = ( $event->args );
+    my ($nick)   = $event->nick;
+    my ($arg)    = ( $event->args );
     my $userhost = $event->userhost;
 
     # Is there any reason to send to send lines that do not start
@@ -668,18 +717,11 @@ sub on_msg {
     if ( $arg =~ /^!.*?$/ ) {
         if ( $arg =~ /^!irc_(\w+)\s(.*?)$/i ) {    #een irc specifiek commando
             my ( $command, $args ) = ( $1, $2 );
-            $userhost =~ s/^(\+|-)?(\^|~)?//;    #funny characters...
+            $userhost =~ s/^(\+|-)?(\^|~)?//;      #funny characters...
             irc_command( $command, "$nick\!$userhost", $args );
-        } else {
-            print "INCOMING irc #\!$nick\!$userhost $arg\n";
         }
-
-        # Speciale gevallen waarin we commando's op irc willen onderscheppen
-        # Het is een vieze hack, maar het is ook maar een irc-botje... 
-        if ( $arg =~ /^!pizza open(.*?)$/i ) {
-            push @{ $sendqueue{'#dnd'} }, "Pizza geopend (door $nick)";
-
-            #$conn->privmsg( "#dnd", "Pizza geopend (door $nick)" );
+        else {
+            print "INCOMING irc #\!$nick\!$userhost $arg\n";
         }
     }
 
@@ -691,7 +733,7 @@ sub on_public {
     my ( $self, $event ) = @_;
     my @to = $event->to;
     my ( $nick, $mynick ) = ( $event->nick, $self->nick );
-    my ($arg) = ( $event->args );
+    my ($arg)   = ( $event->args );
     my $user    = $event->userhost;
     my $channel = ( $event->to )[0];
 
@@ -718,16 +760,15 @@ sub on_public {
 # What to do when we receive a quitmessage.
 sub on_quit {
     my ( $self, $event ) = @_;
-    my ($nick) = $event->nick;
-    my ($arg)  = ( $event->args );
+    my ($nick)   = $event->nick;
+    my ($arg)    = ( $event->args );
     my $userhost = $event->userhost;
-    my $channel = ( $event->to )[0];
-                    
-    #Log it:
-#    logfile( $channel, "*** $nick [$userhost] has quit [$arg]\n"); 
-    # FIXME: ($event->to)[0] is not the channel, but the user. Where is the channel hidden so we can log it?
-}
+    my $channel  = ( $event->to )[0];
 
+#Log it:
+#    logfile( $channel, "*** $nick [$userhost] has quit [$arg]\n");
+# FIXME: ($event->to)[0] is not the channel, but the user. Where is the channel hidden so we can log it?
+}
 
 #
 # Executes irc-commands (say, kick, topic, etc) if user is allowed to
@@ -744,25 +785,32 @@ sub irc_command {
 
     #check userlevel
     my ( $id, $level ) = Multigate::Users::get_user( "irc", "$userhost" );
-    debug( 'irc', "IRC-Command ($command, $args) by $userhost ($id) level: $level" );
+    debug( 'irc',
+        "IRC-Command ($command, $args) by $userhost ($id) level: $level" );
 
     if ( $level >= 500 ) {
         if ( $command eq "say" ) {
             $conn->privmsg( $channel, $args );
-        } elsif ( $command eq "topic" ) {
+        }
+        elsif ( $command eq "topic" ) {
             $conn->topic( $channel, $args );
-        } elsif ( $command eq "action" ) {
+        }
+        elsif ( $command eq "action" ) {
             $conn->ctcp( 'ACTION', $channel, $args );
-        } elsif ( $command eq "kick" ) {
+        }
+        elsif ( $command eq "kick" ) {
             my ( $nick, $reason ) = split /\s/, $args, 2;
             $reason = "By request" unless defined($reason);
             $conn->kick( $channel, $nick, $reason );
-        } elsif ( $command eq "op" ) {
+        }
+        elsif ( $command eq "op" ) {
             $conn->mode( $channel, "+o", $args );
-        } elsif ( $command eq "join" ) {
+        }
+        elsif ( $command eq "join" ) {
             $conn->join($args);
             push @channels, $args;
-        } elsif ( $command eq "leave" ) {
+        }
+        elsif ( $command eq "leave" ) {
             my ( $channel, $reason ) = split /\s/, $args, 2;
             $conn->part($channel);
             remove_channel($channel);
@@ -774,22 +822,25 @@ sub irc_command {
 
 #
 # uses some globals to calculate a sleep-time, to prevent floods
-# just some heuristics for now. can be done much better 
+# just some heuristics for now. can be done much better
 #
 sub irc_sleep {
     my $now = time();
 
     #reclaim tokens
-    if ( ( $now - $lasttime ) >= 60 ) {    #all tokens back after 1 minute of silence
+    if ( ( $now - $lasttime ) >= 60 )
+    {    #all tokens back after 1 minute of silence
         $tokens = 4;
-    } elsif ( ( $now - $lasttime ) >= 30 ) {
+    }
+    elsif ( ( $now - $lasttime ) >= 30 ) {
         $tokens++;
     }
 
     if ( $tokens > 0 ) {    # tokens left
-        $tokens--;    # use one
-        return;       # no sleep
-    } else {
+        $tokens--;          # use one
+        return;             # no sleep
+    }
+    else {
         select( undef, undef, undef, 0.9 );
     }
 }
@@ -806,7 +857,8 @@ sub do_stdin {
             foreach my $destination ( keys %sendqueue ) {
                 my $line = shift @{ $sendqueue{$destination} };
                 unless ( @{ $sendqueue{$destination} } ) {
-                    delete $sendqueue{$destination};    #ready with this destination
+                    delete
+                      $sendqueue{$destination};    #ready with this destination
                     debug( 'irc_debug', "Deleted $destination from sendqueue" );
                 }
                 $conn->privmsg( $destination, $line );
@@ -847,7 +899,7 @@ sub handle_incoming {
 
     if ( defined($input) && ( $input ne "" ) && ( length($input) > 0 ) ) {
 
-        #First we check for multigate commands ("OUTGOING irc")   
+        #First we check for multigate commands ("OUTGOING irc")
         if ( $input =~ /^OUTGOING\sirc\s(.*?)$/ ) {
             my $to_parse = $1;
             my $channel;
@@ -855,7 +907,7 @@ sub handle_incoming {
             my $userhost;
             my $msg;
 
-            #Because of the way irc handles control characters, we need some sanity checking
+#Because of the way irc handles control characters, we need some sanity checking
             $to_parse =~ s/\cM//g;
             $to_parse =~ s/\cA//g;
             $to_parse =~ s/\cJ//g;
@@ -865,16 +917,16 @@ sub handle_incoming {
             #we can get several messages (OUTGOING irc something)
             #the something will be parsed here
 
-            #format: #channel!nick!user@host message , this should go to #channel
-            #FIXME: this only matches channels that just contain normal characters...
-            if ( $to_parse =~ /^(#\w+)!(.*?)!(.*?)\s(.*)/ ) {
+       #format: #channel!nick!user@host message , this should go to #channel
+            if ( $to_parse =~ /^(#[^!]+)!(.*?)!(.*?)\s(.*)/ ) {
                 $channel     = $1;
                 $destination = $2;
                 $userhost    = $3;
                 $msg         = $4;
 
                 #format: #!nick!user@host message , this should go to nick
-            } elsif ( $to_parse =~ /^#!(.*?)!(.*?)\s(.*)/ ) {
+            }
+            elsif ( $to_parse =~ /^#!(.*?)!(.*?)\s(.*)/ ) {
                 $channel     = "#";
                 $destination = $1;
                 $userhost    = $2;
@@ -883,28 +935,34 @@ sub handle_incoming {
                 #HACK!
                 if ( $destination =~ /\|Joop\|/i ) {
                     debug( 'irc_debug', "Adding joop-stuff" );
-                    $msg = "Didn't get the hint? Write your own bot! Don't steal without asking.";
+                    $msg =
+"Didn't get the hint? Write your own bot! Don't steal without asking.";
                 }
 
                 #format: #channel message , this should go to #channel
-            } elsif ( $to_parse =~ /^(#\S+)\s(.*)/ ) {
+            }
+            elsif ( $to_parse =~ /^(#\S+)\s(.*)/ ) {
                 $destination = $1;
                 $channel     = $destination;
                 $msg         = $2;
 
-                #format: nick!user@host message , this should go to the person that matches
-            } elsif ( $to_parse =~ /^(\S*?)!(\S*?)\s(.*)/ ) {
+     #format: nick!user@host message , this should go to the person that matches
+            }
+            elsif ( $to_parse =~ /^(\S*?)!(\S*?)\s(.*)/ ) {
                 $channel     = "#";
                 $destination = $1;
                 $userhost    = $2;
                 $msg         = $3;
 
-                #format: nick message , this should go to nick (actually the same as #channel message)
-            } elsif ( $to_parse =~ /^(.*?)\s(.*)/ ) {
+#format: nick message , this should go to nick (actually the same as #channel message)
+            }
+            elsif ( $to_parse =~ /^(.*?)\s(.*)/ ) {
                 $channel     = "#";
                 $destination = $1;
-                $userhost    = "nobody\@nowhere.org";    #let's hope he doesn't visit our channel ;)
-                $msg         = $2;
+                $userhost    =
+                  "nobody\@nowhere.org"
+                  ;    #let's hope he doesn't visit our channel ;)
+                $msg = $2;
             }
 
             #multiline messages: \xb6 is internal line seperator
@@ -915,12 +973,13 @@ sub handle_incoming {
             $destination = getnick( $destination, $userhost );
             if ( $channel =~ /^#\w+/ ) { $destination = $channel }
 
-            # Attention: an extra newline to prettify the console (blocks of text)
-            debug( 'irc_debug', "destination: $destination. channel:$channel." );
+          # Attention: an extra newline to prettify the console (blocks of text)
+            debug( 'irc_debug',
+                "destination: $destination. channel:$channel." );
             foreach my $line (@lines) {
                 foreach my $sline ( cut_pieces( $line, 445 ) ) {
 
-                    #No empty lines, this _should_ be filtered at a higher level...
+                 #No empty lines, this _should_ be filtered at a higher level...
                     if ( defined($sline) && ( length $sline > 0 ) ) {
 
                         # Add to sendqueue
@@ -931,7 +990,8 @@ sub handle_incoming {
                     }
                 }
             }
-        } elsif ( $input =~ /^DIEDIEDIE/ ) {
+        }
+        elsif ( $input =~ /^DIEDIEDIE/ ) {
 
             #We have to stop...
             $conn->quit($quitmessage);
@@ -1003,13 +1063,14 @@ sub handle_incoming {
             $conn->nick($newnick);
         }
 
-        #Het is iets anders: gooi maar naar kanaal 
+        #Het is iets anders: gooi maar naar kanaal
         else {
             my $channel = $channels[0];
             $conn->privmsg( $channel, $input );
         }
 
-    } else {    # read from stdin went wrong?
+    }
+    else {    # read from stdin went wrong?
         die "aargh";
     }
 }
@@ -1034,8 +1095,8 @@ $conn->add_handler( 'quit',     \&on_quit );
 
 $conn->add_global_handler( [ 251, 252, 253, 254, 302, 255 ], \&on_init );
 $conn->add_global_handler( 'disconnect', \&on_disconnect );
-$conn->add_global_handler( 376,          \&on_connect );
-$conn->add_global_handler( 433,          \&on_nick_taken );
+$conn->add_global_handler( [376, 422 ]   \&on_connect );
+$conn->add_global_handler( [433, 437 ],  \&on_nick_taken );
 $conn->add_global_handler( 353,          \&on_names );
 $conn->add_global_handler( 302,          \&on_userhost_reply );
 
