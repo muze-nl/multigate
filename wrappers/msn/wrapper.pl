@@ -20,10 +20,11 @@ my $pass  = getconf('msn_pass');
 
 Multigate::Debug::setdebug('msn');
 
-my $msn = MSN->new( Handle => $login, Password => $pass );
-$msn->set_handler( Message      => \&on_message );
-$msn->set_handler( Connected    => \&on_connect );
-$msn->set_handler( Disconnected => \&on_disconnect );
+my $msn = MSN->new('Handle' => $login, 'Password' => $pass, 'AutoloadError' => 1, 'Debug' => 1, 'Messaging' => 1, 'ShowTX' => 1, 'ShowRX' => 1);
+
+$msn->setHandler( 'Message'      => \&on_message );
+$msn->setHandler( 'Connected'    => \&on_connect );
+$msn->setHandler( 'Disconnected' => \&on_disconnect );
 
 $msn->connect();
 

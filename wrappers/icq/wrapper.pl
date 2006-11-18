@@ -1,240 +1,426 @@
 #!/usr/bin/perl -w
-# (C) 2002 Wieger Opmeer, Casper Joost Eyckelhof, Yvo Brevoort
-# Based on code from 'vicq'
 
-use strict;
 use lib "lib";
+use strict;
+use warnings;
+use Getopt::Long;
+use Net::OSCAR qw(:standard :loglevels);
+use Digest::MD5 qw(md5);
+use IO::Poll;
+
 use Multigate::Debug;
 use Multigate::NBRead;
 use Multigate::Util;
 
-use Net::ICQ2000_Easy;
-use IO::Select;
-use IO::Handle;
-
 use Multigate::Config qw(readconfig getconf);
 readconfig('multi.conf');    # reread config file on wrapper start
 
-my $login = getconf('icq_number');
-my $pass  = getconf('icq_pass');
 
-my $icq;
-my $details;
-my $message;
-my $target_uin;
-my %Contact_List = ();
+# Read config from multi
+my $screenname = getconf('icq_number');
+my $password  = getconf('icq_pass');
 
-Multigate::Debug::setdebug('icq');
+eval {
+	require Data::Dumper;
+};
+use vars qw($pid $oscar @chats @invites $loglevel $domd5 $password %fdmap $poll);
 
-sub connect {
-
-    # 1= min connect, 2 = normal (larger, and not needed..)
-
-    debug( 'icq', "Connecting to server using \"$login-$pass\"" );
-
-    $icq = ICQ2000_Easy->new( $login, $pass, "1" );    #Normal multi account
-                                                       #$icq = ICQ2000_Easy->new("89081684", "blikkie", "1");   #Backup account
-
-    # Empty contact list, we have users in the multigate database instead of in
-    # our own contact list.
-
-    $icq->Setup_Contact_List( \%Contact_List );
-
-    #Auto-ack offline messages.
-    $icq->Auto_Ack_Offline_Messages(1);
-
-    # Set debugging value.
-    # 0 = non, 1 = ICQ2000_Easy only, 2 = ICQ2000.pm only, 3 = all.
-    $icq->Set_Debugging(0);
-
-    # Because the Mods are event driven, we register "Hooks" on certain events,
-    # so after the event has occured, the hooked function is run, and the data
-    # from the event is passed to the function, so it can do extra things..
-
-    $icq->Add_Hook( "Srv_Mes_Received", \&RecMessage );
-    $icq->Add_Hook( "Srv_Srv_Message",  \&SrvMessage );
-
-    #$icq->Add_Hook("Srv_BLM_Contact_Online", \&User_Online);
-    #$icq->Add_Hook("Srv_BLM_Contact_Offline", \&User_Offline);
-    $icq->Add_Error_Hook( \&General_Error_Notice );
-
-    # Since MOTD is no longer used, use this notice to tell when we've finished
-    # logging on.. Eg if u want to have something send as soon as we're online,
-    # chuck the command it the function you hook to this command, but be warned,
-    # this function is also run whenever the script changes online status (eg to
-    # invisible etc..)
-
-    #$icq->Add_Hook("Srv_GSC_User_Info", \&GSC_User_Info);
+my $readline = 0;
+eval {
+	require Term::ReadLine;
+};
+if($@) {
+	warn "Couldn't load Term::ReadLine -- omitting readline support: $@\n";
+} else {
+	$readline = 1;
 }
 
-#Catch Ctrl_C etc and die cleanly..
-$SIG{INT} = \&disconnect;
-
-#Just exits the program...
-sub disconnect {
-    debug( 'icq', "Exiting ICQ.." );
-    exit(0);
-}
-
-# This function will send a "normal" ICQ message to someone..
-# Called using Send_Normal_Message(uin, text);
-sub Send_Normal_Message {
-    $target_uin = shift;
-    my $text    = shift;
-    my %details = (
-        uin  => $target_uin,
-        text => $text
-    );
-
-    #   print "Target UIN: $target_uin\n";
-    #   print "Message:\n$text\n";
-
-    $icq->Send_Command( "Cmd_Mes_Send", \%details );
-}
-
-sub DisplayDetails {
-    my ( $Object, $details ) = @_;
-
-    foreach ( keys %$details ) {
-        print "[$_][$details->{$_}]\n";
-    }
-    print "\n";
-}
-
-sub General_Error_Notice {
-    my ( $Object, $ErrID, $ErrMes ) = @_;
-    debug( 'icq', "Error [$ErrID] occured : [$ErrMes]" );
-}
-
-sub SrvMessage {
-    my ( $Object, $details ) = @_;
-
-    #These are responces from the server which r unique to ICQ..
-
-    if ( $details->{Responce_Type} ) {
-
-        #the server is replying to one of our data requests (sending us the ads/update locations..)
-        #not strictly needed..
-
-        #$details->{Responce_Type}  - Request message server is responding to..
-        #$details->{value}          - Data value returned by server (usally an IP)
-    }
-
-    elsif ( $details->{MessageType} eq "Offline_Message" ) {
-
-        #These are the messages that our UIN recieved while we were offline..
-
-        #$details->{deliverable}    - The Time/date the message was sent
-        #$details->{Our_UIN}        - Our UIN (not really very useful)
-        #$details->{Text}           - The Message Sent
-        #$details->{Senders_UIN}    - The Sender's UIN
-
-        $message = $details->{Text};
-
-        # Newline tekens omzetten naar intern multigate newlines.
-        $message =~ s/\r\n/\xb6/g;
-        $message =~ s/\r/\n/g;
-        $message =~ s/\n/\xb6/g;
-        print "INCOMING icq " . $details->{Senders_UIN} . " " . $message . "\n";
-    }
-}
-
-sub RecMessage {
-    my ( $Object, $details ) = @_;
-    if ( $details->{MessageType} eq "Normal_Message" ) {
-
-        #deal with a normal ICQ message..
-        #$details->{Sender}         - Sender's ICQ number
-        #$details->{SignOn_Date}    - Sender's Logon Date (in UTC)
-        #$details->{Time_Online}    - Sender's Online length of Time (in secs)
-        #$details->{Text}           - Sender's message
-
-        $message = $details->{Text};
-
-        # Newline tekens omzetten naar intern multigate newlines.
-        $message =~ s/\r\n/\xb6/g;
-        $message =~ s/\r/\n/g;
-        $message =~ s/\n/\xb6/g;
-        print "INCOMING icq " . $details->{Sender} . " " . $message . "\n";
-    }
-
-    # Debug info, uncomment if needed.
-    #   else {
-    #      print "Unknown trans\n";
-    #      foreach (keys %$details){
-    #         print "[$_][$details->{$_}]\n";
-    #      }
-    #      print "\n";
-    #      print "\n";
-    #   }
-
-}
-
-#Takes one (long) line and a maximum line length, and turns it into n shorter lines
-
-sub split_pieces {
-    my ( $to_split, $maxlength ) = @_;
-    my @hasBeenSplit = ();
-    while ( length $to_split > $maxlength ) {
-        my $head = substr( $to_split, 0, $maxlength );
-        $to_split = substr( $to_split, $maxlength );
-        push @hasBeenSplit, $head;
-    }
-    push @hasBeenSplit, $to_split;
-    return @hasBeenSplit;
-}
-
-#main Execution loop.. please be carefull what u place in here!!!
-
-&connect;
-
-#select on STDIN, build a readset with only STDIN
-my $stdin = new IO::Handle;
-$stdin->fdopen( fileno(STDIN), 'r' );
-make_non_blocking($stdin);
-
-my $readset = IO::Select->new();
-$readset->add($stdin);
-
-my $r_ready;    #to store read_ready filehandles
+#$Carp::Verbose = 1;
 $| = 1;
 
-my $fh;
-my $input;
 
-while (1) {
-    $icq->Execute_Once();
+my $loglevel = undef;
+my $stealth = 0;
+my $host = undef;
 
-    if ( $icq->Connected() ) {
-        ($r_ready) = IO::Select->select( $readset, undef, undef, 1 );
-        foreach $fh (@$r_ready) {
+$poll = IO::Poll->new();
+$poll->mask(STDIN => POLLIN);
 
-            #We have someone knocking on STDIN, lets read what it is
-            while ( $input = nbread($fh) ) {
-                chomp($input);
-                if ( $input =~ m/OUTGOING icq (\d+) (.*)/ ) {
-                    $target_uin = $1;
-                    $message    = $2;
-                    $message =~ s/\xb6/\r\n/g;
+$oscar = Net::OSCAR->new(capabilities => [qw(typing_status extended_status buddy_icons file_transfer buddy_list_transfer)], rate_manage => OSCAR_RATE_MANAGE_MANUAL);
+$oscar->set_callback_error(\&error);
+$oscar->set_callback_buddy_in(\&buddy_in);
+$oscar->set_callback_buddy_out(\&buddy_out);
+$oscar->set_callback_im_in(\&im_in);
+$oscar->set_callback_chat_joined(\&chat_joined);
+$oscar->set_callback_chat_buddy_in(\&chat_buddy_in);
+$oscar->set_callback_chat_buddy_out(\&chat_buddy_out);
+$oscar->set_callback_chat_im_in(\&chat_im_in);
+$oscar->set_callback_chat_invite(\&chat_invite);
+$oscar->set_callback_buddy_info(\&buddy_info);
+$oscar->set_callback_evil(\&evil);
+$oscar->set_callback_chat_closed(\&chat_closed);
+$oscar->set_callback_buddylist_error(\&buddylist_error);
+$oscar->set_callback_buddylist_ok(\&buddylist_ok);
+$oscar->set_callback_buddylist_changed(\&buddylist_changed);
+$oscar->set_callback_admin_error(\&admin_error);
+$oscar->set_callback_admin_ok(\&admin_ok);
+$oscar->set_callback_rate_alert(\&rate_alert);
+$oscar->set_callback_new_buddy_icon(\&new_buddy_icon);
+$oscar->set_callback_buddy_icon_downloaded(\&buddy_icon_downloaded);
+$oscar->set_callback_buddy_icon_uploaded(\&buddy_icon_uploaded);
+$oscar->set_callback_typing_status(\&typing_status);
+$oscar->set_callback_extended_status(\&extended_status);
+$oscar->set_callback_signon_done(\&signon_done);
+$oscar->set_callback_auth_challenge(\&auth_challenge);
+$oscar->set_callback_im_ok(\&im_ok);
+$oscar->set_callback_stealth_changed(\&stealth_changed);
+$oscar->set_callback_buddy_icq_info(\&buddy_icq_info);
+$oscar->set_callback_connection_changed(\&connection_changed);
+$oscar->set_callback_buddylist_in(\&buddylist_in);
 
-                    foreach my $piece ( cut_pieces( $message, 400 ) ) {
-                        Send_Normal_Message( $target_uin, $piece );
-                        sleep 2;    #why can't we send messages closely after eachother?
-                    }
-                } elsif ( $input =~ m/^DIEDIEDIE/ ) {
-                    disconnect();
-                }
-                unless ( defined $input ) {
+$oscar->loglevel($loglevel) if defined($loglevel);
 
-                    # $fh has closed... should we do something now?
-                }
-            }
-        }
-    } else {
-        undef $icq;
+# I specify local_port 5190 so that I can sniff that one port and get all OSCAR
+# traffic, including direct connections.
+my %so_opts;
+%so_opts = (screenname => $screenname, password => $password, stealth => $stealth, local_port => 5190);
 
-        #lets wait for a while 
-        sleep 5;
-        &connect;
-    }
+if(defined($host)) {
+	$so_opts{host} = $host;
+}
+
+$oscar->signon(%so_opts);
+
+
+
+my $inline = "";
+my $inchar = "";
+while(1) {
+	next unless $poll->poll();
+
+	my $got_stdin = 0;
+	my @handles = $poll->handles(POLLIN | POLLOUT | POLLHUP | POLLERR | POLLNVAL);
+	foreach my $handle (@handles) {
+		if(fileno($handle) == fileno(STDIN)) {
+			$got_stdin = 1;
+		} else {
+			my($read, $write, $error) = (0, 0, 0);
+			my $events = $poll->events($handle);
+			$read = 1 if $events & POLLIN;
+			$write = 1 if $events & POLLOUT;
+			$error = 1 if $events & (POLLNVAL | POLLERR | POLLHUP);
+
+			$fdmap{fileno($handle)}->log_print(OSCAR_DBG_DEBUG, "Got r=$read, w=$write, e=$error");
+			$fdmap{fileno($handle)}->process_one($read, $write, $error);
+		}
+	}
+	next unless $got_stdin;
+
+	sysread(STDIN, $inchar, 1);
+	if($inchar eq "\n") {
+    	if ($inline =~ /^OUTGOING icq (.*?) (.*)/) {
+			my $target = $1;
+			my $message = $2;
+            $message =~ s/\xb6/\r\n/g;
+
+			my $ret = $oscar->send_im($target, $message);
+			#print STDERR "Sending IM $ret to $target...\n";
+		}
+		if ($inline =~ /^DIEDIEDIE/) {
+			exit;
+		}
+        $inchar = "";
+        $inline = "";
+	} else {
+		$inline .= $inchar;
+	}
+}
+
+
+sub error($$$$$) {
+	my($oscar, $connection, $errno, $error, $fatal) = @_;
+	if($fatal) {
+		die "Fatal error $errno in ".$connection->{description}.": $error\n";
+	} else {
+		#print STDERR "Error $errno: $error\n";
+	}
+}
+
+sub signon_done($) {
+	my $oscar = shift;
+	print "You are now signed on to AOL Instant Messenger.\n";
+}
+
+sub typing_status($$$) {
+	my($oscar, $who, $status) = @_;
+	#print STDERR "We received typing status $status from $who.\n";
+}
+
+sub extended_status($$) {
+	my($oscar, $status) = @_;
+	#print STDERR "Our extended status is $status.\n";
+}
+
+sub rate_alert($$$) {
+	my($oscar, $level, $clear, $window) = @_;
+
+	$clear /= 1000;
+	#print STDERR "We received a level $level rate alert.  Wait for about $clear seconds.\n";
+}
+
+sub buddylist_error($$$) {
+	my($oscar, $error, $what) = @_;
+	#print STDERR "Error $error occured while $what on your buddylist\n";
+}
+
+sub buddylist_ok($) {
+	#print STDERR "Your buddylist was modified successfully.\n";
+}
+
+sub admin_error($$$$) {
+	my($oscar, $reqtype, $error, $errurl) = @_;
+
+	#print STDERR "Your $reqtype request was unsuccessful (", 0+$error, "): $error.";
+	#print STDERR "  See $errurl for more info." if $errurl;
+	#print STDERR "\n";
+}
+
+sub admin_ok($$) {
+	my($oscar, $reqtype) = @_;
+
+	print "Your $reqtype request was successful.\n";
+}
+
+sub new_buddy_icon($$$) {
+	my($oscar, $screenname, $buddat) = @_;
+	print "$screenname claims to have a new buddy icon.\n";
+}
+
+sub buddy_icon_downloaded($) {
+	my($oscar, $screenname, $icon) = @_;
+
+	print "Buddy icon for $screenname downloaded...\n";
+	open(ICON, ">/tmp/$screenname.$$.icon") or do {
+		print "Couldn't open /tmp/$screenname.$$.icon for writing: $!\n";
+		return;
+	};
+	print ICON $icon;
+	close ICON;
+	print "Icon written to /tmp/$screenname.$$.icon.\n";
+}
+
+sub buddy_icon_uploaded($) {
+	my($oscar) = @_;
+
+	print "Your buddy icon was successfully uploaded.\n";
+}
+
+sub chat_closed($$$) {
+	my($oscar, $chat, $error) = @_;
+	for(my $i = 0; $i < @chats; $i++) {
+		next unless $chats[$i] == $chat;
+		splice @chats, $i, 1;
+	}
+	#print STDERR "Connection to chat ", $chat->{name}, " was closed: $error\n";
+}
+
+sub buddy_in($$$$) {
+	shift;
+	my($screenname, $group, $buddat) = @_;
+	print "Got buddy $screenname from $group\n";
+}
+
+sub chat_buddy_in($$$$) {
+	shift;
+	my($screenname, $chat, $buddat) = @_;
+	print "Got buddy $screenname from chat ", $chat->{name}, ".\n";
+}
+
+sub buddy_out($$$) {
+	shift;
+	my($screenname, $group) = @_;
+	print "Lost buddy $screenname from $group\n";
+}
+
+sub chat_buddy_out($$$) {
+	shift;
+	my($screenname, $chat) = @_;
+	print "Lost buddy $screenname from chat ", $chat->{name}, ".\n";
+}
+
+sub im_in($$$) {
+	shift;
+	my($who, $what, $away) = @_;
+	if($away) {
+		$away = "[AWAY] ";
+	} else {
+		$away = "";
+	}
+	#print STDERR "$who: $away$what\n";
+
+    $what =~ s/\r\n/\xb6/g;
+    $what =~ s/\r/\n/g;
+    $what =~ s/\n/\xb6/g;
+                        
+	print "INCOMING icq $who $what\n";
+}
+
+sub chat_im_in($$$$) {
+	shift;
+	my($who, $chat, $what) = @_;
+	#print STDERR "$who in ".$chat->{name}.": $what\n";
+
+    $what =~ s/\r\n/\xb6/g;
+    $what =~ s/\r/\n/g;
+    $what =~ s/\n/\xb6/g;
+            
+	print "INCOMING icq $who $what\n";
+}
+
+sub chat_invite($$$$$) {
+	shift;
+	my($from, $msg, $chat, $chaturl) = @_;
+	my $invnum = push @invites, $chaturl;
+	$invnum--;
+	print "$from has invited us to chat $chat.  Use command accept_invite $invnum to accept.\n";
+	print "Invite message: $msg\n";
+}
+
+sub chat_joined($$$) {
+	shift;
+	my($name, $chat) = @_;
+	push @chats, $chat;
+	print "You have joined chat $name.  Its chat number is ".(scalar(@chats)-1)."\n";
+}
+
+sub evil($$$) {
+	shift;
+	my($newevil, $enemy) = @_;
+	$enemy ||= "Anonymous";
+	print "$enemy has just evilled you!  Your new evil level is $newevil%.\n";
+}
+
+sub buddy_info($$$) {
+	shift;
+	my($screenname, $buddat) = @_;
+	my $membersince = $buddat->{membersince} ? localtime($buddat->{membersince}) : "";
+	my $onsince = localtime($buddat->{onsince});
+
+	my $extra = "";
+	$extra .= " [TRIAL]" if $buddat->{trial};
+	$extra .= " [AOL]" if $buddat->{aol};
+	$extra .= " [FREE]" if $buddat->{free};
+	$extra .= " [AWAY]" if $buddat->{away};
+
+	$extra .= "\nMember Since: $membersince" if $membersince;
+	$extra .= "\nIdle Time (secs): " . (time()-$buddat->{idle_since}) if exists($buddat->{idle_since}) and defined($buddat->{idle_since});
+	if($buddat->{capabilities}) {
+		$extra .= "\nCapabilities:";
+		$extra .= "\n\t$_" foreach values %{$buddat->{capabilities}};
+	}
+
+	my $profile = "";
+	if($buddat->{awaymsg}) {
+		$profile = <<EOF
+---------------------------------
+Away message
+---------------------------------
+$buddat->{awaymsg}
+EOF
+	} elsif($buddat->{profile}) {
+		$profile = <<EOF
+---------------------------------
+Profile
+---------------------------------
+$buddat->{profile}
+EOF
+	}
+
+	print <<EOF;
+=================================
+Buddy info for $screenname
+---------------------------------
+EOF
+print "Extended Status: $buddat->{extended_status}\n" if exists($buddat->{extended_status});
+print <<EOF;
+Flags: $extra
+On Since: $onsince
+Evil Level: $buddat->{evil}%
+$profile
+=================================
+EOF
+}
+
+sub auth_challenge($$$) {
+	my($oscar, $challenge, $hashstr) = @_;
+	my $md5 = Digest::MD5->new;
+	$md5->add($challenge);
+	$md5->add(md5($password));
+	$md5->add($hashstr);
+	$oscar->auth_response($md5->digest, 5.5);
+}
+
+sub im_ok($$$) {
+	my($oscar, $to, $reqid) = @_;
+	print "Your message, $reqid, was sent to $to.\n";
+}
+
+sub stealth_changed($$) {
+	my($oscar, $stealth_state) = @_;
+	print "Stealth state changed to $stealth_state.\n";
+}
+
+sub buddy_icq_info($$$) {
+	my($oscar, $uin, $info) = @_;
+	print "Got ICQ info for $uin: " . Data::Dumper::Dumper($info) . "\n";
+}
+
+sub connection_changed($$$) {
+	my($oscar, $connection, $status) = @_;
+
+	my $h = $connection->get_filehandle();
+	return unless $h;
+	$connection->log_printf(OSCAR_DBG_DEBUG, "State changed (FD %d) to %s", fileno($h), $status);
+	my $mask = 0;
+
+	if($status eq "deleted") {
+		delete $fdmap{fileno($h)};
+	} else {
+		$fdmap{fileno($h)} = $connection;
+		if($status eq "read") {
+			$mask = POLLIN;
+		} elsif($status eq "write") {
+			$mask = POLLOUT;
+		} elsif($status eq "readwrite") {
+			$mask = POLLIN | POLLOUT;
+		}
+	}
+
+	$poll->mask($h => $mask);
+}
+
+sub buddylist_in($$$) {
+	my($oscar, $sender, $list) = @_;
+	print "Got buddylist from $sender\n";
+	print "================================\n";
+
+	foreach my $group (sort keys %$list) {
+		print "$group:\n";
+		foreach my $buddy (sort @{$list->{$group}}) {
+			print "\t$buddy\n";
+		}
+	}
+}
+
+sub buddylist_changed($@) {
+	my($oscar, @changes) = @_;
+
+	print "Buddylist was changed:\n";
+	foreach (@changes) {
+		printf("\t%s: %s %s\n",
+			$_->{action},
+			$_->{type},
+			($_->{type} == MODBL_WHAT_BUDDY) ? ($_->{group} . "/" . $_->{buddy}) : $_->{group}
+		);
+	}
 }
