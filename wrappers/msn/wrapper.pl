@@ -15,6 +15,7 @@ readconfig('multi.conf');    # reread config file on wrapper start
 
 my $login = getconf('msn_login');
 my $pass  = getconf('msn_pass');
+my $timeout = 60;
 
 #my $fname = getconf('msn_fname');
 
@@ -25,6 +26,9 @@ my $msn = MSN->new('Handle' => $login, 'Password' => $pass, 'AutoloadError' => 1
 $msn->setHandler( 'Message'      => \&on_message );
 $msn->setHandler( 'Connected'    => \&on_connect );
 $msn->setHandler( 'Disconnected' => \&on_disconnect );
+
+$SIG{ALRM} = sub { die "Can't connect after 60 seconds\n" };
+alarm $timeout;
 
 $msn->connect();
 
@@ -55,7 +59,7 @@ while (1) {
             if ( $input =~ m/OUTGOING msn (.*?) (.*)/ ) {
                 $target  = $1;
                 $message = $2;
-                $message =~ s/\xb6/\r\n/g;
+                $message =~ s/\xb6/\n/g;
                 foreach my $piece ( cut_pieces( $message, 1000 ) ) {
                     $msn->call( $target, $piece );
                 }
@@ -83,6 +87,7 @@ sub on_connect {
 
     #   $msn->call('yvo@muze.nl', "Frop!!!");
     debug( 'msn', 'Connected to MSN' );
+    alarm 0;
 }
 
 sub on_disconnect {
