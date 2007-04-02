@@ -103,8 +103,13 @@ sub addentry {
     # assume 2 possibilities:
     # +[[days:]hours:]minutes -> current_time + days:hours:minutes
     # !^+                     -> first occurence of that time from now
+    # teatime                 -> first occurence of 16:00
 
     debug( 'scheduler_debug', "Trying to parse: $time" );
+
+	 if( $time =~ /^teatime$/ ) { # its teatime
+		 $time = "16:00";
+	 }
 
     if ( $time =~ /^\s*\+([0-9:]+)\s*$/ ) {    # relative time
         my ( $mn, $hr, $dy, $mo, $yr ) = reverse split /:/, $1;
