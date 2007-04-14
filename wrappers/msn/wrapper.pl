@@ -88,6 +88,10 @@ sub on_connect {
     #   $msn->call('yvo@muze.nl', "Frop!!!");
     debug( 'msn', 'Connected to MSN' );
     alarm 0;
+    if (-e "display.png") {
+        $msn->setDisplayPicture("display.png");
+        debug('msn', 'Set display picture');
+    }
 }
 
 sub on_disconnect {
