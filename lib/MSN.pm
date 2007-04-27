@@ -619,6 +619,9 @@ Looks for a member in an active SwitchBoard and returns the SB or undef, if not 
 
 sub findMember
 {
+	# If the switchboard code doesn't clean up after itself when a connection close, we'll just not reuse the SB.
+	return undef;
+	
 	my $self = shift;
 	my $email = shift || '';
 
