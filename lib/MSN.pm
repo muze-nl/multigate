@@ -719,6 +719,7 @@ sub do_one_loop
 		if( !$connection->{Socket}->connected() )
 		{
 			$self->{Select}->remove( $fn );
+                        $connection->{Socket}->close();
                         delete( $connection->{Socket} );
 			delete( $self->{Connections}->{fn} );
 			warn "Killing dead socket";
