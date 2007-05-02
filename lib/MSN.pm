@@ -722,8 +722,18 @@ sub do_one_loop
 		if( !$connection->{Socket}->connected() )
 		{
 			$self->{Select}->remove( $fn );
-                        $connection->{Socket}->close();
-                        delete( $connection->{Socket} );
+
+			# Reset everything about this switchboard connection before deleting
+			$self->{Connections}->{fn}->{Msn}                   = undef;
+			$self->{Connections}->{fn}->{Host}                  = undef;
+			$self->{Connections}->{fn}->{Port}                  = undef;
+			$self->{Connections}->{fn}->{Socket}                = undef;
+			$self->{Connections}->{fn}->{Members}               = {};
+			$self->{Connections}->{fn}->{Call}                  = {},
+			$self->{Connections}->{fn}->{p2pQue}                = [],
+			$self->{Connections}->{fn}->{Type}                  = 'SB',
+			$self->{Connections}->{fn}->{MessageStyle}  = undef;
+
 			delete( $self->{Connections}->{fn} );
 			warn "Killing dead socket";
 			next;
