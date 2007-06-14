@@ -24,7 +24,7 @@ use Multigate::Util;
 
 #############Initialisation and stuff#######################
 
-use Multigate::Config qw(readconfig getconf);
+use Multigate::Config qw(readconfig getconf hasconf);
 readconfig('multi.conf');    # reread config file on wrapper start
 
 my $dev = getconf('dev');    #development version does not capture url's
@@ -375,7 +375,12 @@ sub on_connect {
 
         # Join our channel
         debug( 'irc', "Joining channel \"$channel\"" );
-        $self->join($channel);
+        if(hasconf("irc_chankey_" . substr($channel, 1))) {
+                $self->join($channel, getconf("irc_chankey_" . substr($channel, 1)));
+        }
+        else {
+                $self->join($channel);
+        }
         logfile( $channel, "*** Joining channel $channel\n" );
     }
     $recon_current = $recon_start;

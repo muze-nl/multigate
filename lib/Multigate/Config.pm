@@ -19,7 +19,7 @@ use Multigate::Debug;
 
 $VERSION   = '0.01';
 @ISA       = qw( Exporter );
-@EXPORT    = qw( getconf read_commandconfig);
+@EXPORT    = qw( getconf read_commandconfig hasconf);
 @EXPORT_OK = qw( readconfig );
 
 #Multigate::Debug::setdebug('Config');
@@ -40,6 +40,17 @@ sub getconf {
     else {
         die "Unknown config item $key.\n";
     }
+}
+
+#
+#
+#
+sub hasconf {
+    my $key = shift;
+
+    my $val = exists($config{$key});
+    debug( 'Config_debug', "hasconf returning $val for $key" );
+    return $val;
 }
 
 #
