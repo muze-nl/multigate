@@ -29,7 +29,7 @@ use DBI;
 use FileHandle;
 
 use lib './lib';
-use Multigate::Config qw( getconf readconfig );
+use Multigate::Config qw( getconf readconfig hasconf);
 
 $VERSION = '2';
 @ISA     = qw( Exporter );
@@ -48,7 +48,11 @@ $VERSION = '2';
 
 # returns a working $dbh, we hope
 sub get_dbh {
-    my $password = getconf('db_passwd');
+    my $password;
+    if (hasconf('db_passwd')) {
+        $password = getconf('db_passwd');
+        print STDERR "pass: $password\n";
+    }
     my $db_user  = getconf('db_user');
     my $database = getconf('db_name');
     my $dbh      = DBI->connect_cached( 'DBI:mysql:' . $database,
@@ -65,7 +69,11 @@ sub init_users_module {
     my $configroot = $ENV{MULTI_ROOT};
     unless ($configroot) { $configroot = "."; }
     readconfig("$configroot/multi.conf");    #allowed this way?
-    my $password = getconf('db_passwd');
+    my $password;
+
+    if (hasconf('db_passwd')) {
+        $password = getconf('db_passwd');
+    }
     my $db_user  = getconf('db_user');
     my $database = getconf('db_name');
     my $dbh      = get_dbh();
