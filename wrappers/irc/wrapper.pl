@@ -947,7 +947,7 @@ sub handle_incoming {
 
                 #format: #channel message , this should go to #channel
             }
-            elsif ( $to_parse =~ /^(#\S+)\s(.*)/ ) {
+            elsif ( $to_parse =~ /^([#&][^! ,]+)\s(.*)/ ) {
                 $destination = $1;
                 $channel     = $destination;
                 $msg         = $2;
