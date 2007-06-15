@@ -923,7 +923,8 @@ sub handle_incoming {
             #the something will be parsed here
 
        #format: #channel!nick!user@host message , this should go to #channel
-            if ( $to_parse =~ /^(#[^!]+)!(.*?)!(.*?)\s(.*)/ ) {
+			if ( $to_parse =~ /^([#&][^! ,]+)!(.*?)!(.*?)\s(.*)/) {
+            #if ( $to_parse =~ /^(#[^!]+)!(.*?)!(.*?)\s(.*)/ ) {
                 $channel     = $1;
                 $destination = $2;
                 $userhost    = $3;
