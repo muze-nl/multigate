@@ -783,7 +783,7 @@ sub irc_command {
     my ( $command, $userhost, $args ) = @_;
 
     my $channel = $channels[0];
-    if ( $args =~ /^(#\w+) (.*)$/ ) {
+    if ( $args =~ /^([#!+][^ ]+) (.*)$/ ) {
         $channel = lc($1);
         $args    = $2;
     }
