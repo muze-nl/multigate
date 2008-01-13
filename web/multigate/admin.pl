@@ -10,8 +10,13 @@
 #
 
 use strict;
-use vars qw( $r $user $level %args $dbh );
-use Apache::Util qw( escape_html );
+use vars qw( $r $req $user $level $args %args $dbh );
+#MP2
+use Apache2::Request;
+use Apache2::RequestUtil ();
+use ModPerl::Util qw( exit );
+#MP1
+#use Apache::Util qw( escape_html exit );
 use FileHandle;
 use lib '../../lib';
 use Multigate::Config qw( getconf readconfig );
@@ -50,9 +55,17 @@ my ( $action, $subref, %dispatch, $password, $fh );
     '_default_'            => \&showallusers,
 );
 
-$r = Apache->request;
+#MP1
+#$r = Apache->request;
+#$user = $r->connection->user;
+#MP2
+$r = Apache2::RequestUtil->request;
+$req = Apache2::Request->new($r);
 $r->content_type('text/html');
-$user = $r->connection->user;
+#MP1
+#$user = $r->connection->user;
+#MP2
+$user = $r->user;
 
 $fh = new FileHandle;
 
@@ -87,7 +100,11 @@ EOT
     $r->exit();
 }
 
-%args = $r->method eq 'POST' ? $r->content : $r->args;
+#MP1
+#%args = $r->method eq 'POST' ? $r->content : $r->args;
+#MP2
+$args = $req->param;
+%args = %$args if $args;
 
 if (    ( $action = $args{'action'} )
     and ( $subref = $dispatch{$action} ) )
@@ -99,7 +116,10 @@ else {
     &$subref();
 }
 
-$r->exit;
+#MP1
+#$r->exit;
+#MP2
+exit;
 
 #
 # ---------------------------------------------------------
@@ -1513,6 +1533,18 @@ sub salt {
 
 if ( defined $dbh ) {
     $dbh->disconnect;
+}
+
+
+#MP2 (there should be a standard function somewhere!)
+sub escape_html {
+        my $str = shift;
+
+        $str =~ s/&/&amp;/g;
+        $str =~ s/</&lt;/g;
+        $str =~ s/>/&gt;/g;
+
+        return $str;
 }
 
 
