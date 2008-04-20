@@ -1,1 +1,0 @@
-bongotemp: geeft de temperatuur in bongo's beach bar en omgeving
