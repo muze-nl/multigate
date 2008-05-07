@@ -51,7 +51,6 @@ sub get_dbh {
     my $password;
     if (hasconf('db_passwd')) {
         $password = getconf('db_passwd');
-        print STDERR "pass: $password\n";
     }
     my $db_user  = getconf('db_user');
     my $database = getconf('db_name');
