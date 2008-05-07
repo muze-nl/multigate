@@ -42,8 +42,9 @@ $VERSION = '2';
   get_preferred_protocol set_preferred_protocol unset_preferred_protocol
   get_protocol_level set_protocol_level
   get_protocol_maxmsgsize set_protocol_maxmsgsize
-  add_box remove_box get_box inc_box dec_box set_box
+  add_box remove_box get_box inc_box dec_box set_box list_boxes
   authorize_expenditure commit_expenditure check_and_withdraw
+  authenticate_user
   init_users_module cleanup_users_module );
 
 # returns a working $dbh, we hope
@@ -138,6 +139,26 @@ WHERE
 EOT
     return ( 'pietjepuk', 0 ) if ( $#res == -1 );
     return @res[ 0 .. 1 ];
+}
+
+sub authenticate_user {
+  my ( $username, $password ) = @_;
+  return undef unless $username and $password;
+    
+  my $dbh = get_dbh();
+  my @res = $dbh->selectrow_array( <<'EOT', {}, $username );
+SELECT
+  password
+FROM
+  user
+WHERE
+  username = ?
+EOT
+    my $crypted_password = crypt($password, $res[0]);
+    if ($res[0] eq $crypted_password) {
+      return 1;
+    }
+    return 0;
 }
 
 #
@@ -956,6 +977,35 @@ VALUES
 EOT
     return $res;
 }
+
+
+#
+# Lists boxes for a user or all boxes
+#
+sub list_boxes {
+    my ( $user ) = @_;
+    my $dbh = get_dbh();
+    if ( defined $user and ($user = aliastouser($user)) ) {
+        my $res = $dbh->selectcol_arrayref( <<'EOT', {}, $user );
+SELECT
+  boxname
+FROM  
+  box
+WHERE
+  username like ?
+EOT
+        return $res;
+    } else { 
+        my $res = $dbh->selectcol_arrayref( <<'EOT', {} );
+SELECT
+  distinct(boxname)
+FROM  
+  box
+EOT
+        return $res;
+    }
+}
+
 
 #
 # - Check if user has enough units in the requested box
