@@ -8,4 +8,5 @@ PerlSetVar Auth_DBI_password xxxxxxx
 PerlSetVar Auth_DBI_pwd_table user
 PerlSetVar Auth_DBI_uid_field username
 PerlSetVar Auth_DBI_pwd_field password
+PerlOptions +GlobalRequest
 require valid-user
