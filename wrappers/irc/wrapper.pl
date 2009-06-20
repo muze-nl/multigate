@@ -11,7 +11,6 @@ use POE::Component::IRC::Plugin::AutoJoin;
 use POE::Component::IRC::Plugin::NickReclaim;
 use POE::Component::IRC::Plugin::CycleEmpty;
 use POE::Component::IRC::Plugin::CTCP;
-#use POE::Component::IRC::Plugin::Logger;
 use Multigate::IrcLogger;
 use POE::Component::IRC::Plugin::Connector;
 
@@ -37,6 +36,8 @@ my $irc_flood    = 0;
 my $irc_oper     = undef;
 my $irc_operpass = undef;
 my %channels     = ();
+my %sendqueue = ();    # $destination => @lines
+
 
 my $quitmessagefile = "wrappers/irc/quitmessages.txt";
 my $quitmessage = 'This poor wrapper has to die.';
@@ -53,6 +54,8 @@ Multigate::Debug::setdebug('irc');
 
 
 sub irc_start {
+	my ($kernel, $heap) = @_[KERNEL ,HEAP];
+
 	debug( 'irc', "Starting irc" );
 
 	srand();
@@ -120,6 +123,9 @@ sub irc_start {
 
 	$irc->yield( register => 'all' );
 	$irc->yield('connect');
+
+	debug( 'irc', "scheduling irc_send_tick" );
+	$kernel->delay(  'irc_send_tick', 0.1);
 }
 
 
@@ -229,7 +235,7 @@ sub console_start {
 }
 
 sub console_input {
-	my ( $heap, $input, $wheel_id ) = @_[ HEAP, ARG0, ARG1 ];
+	my ( $kernel , $heap, $input, $wheel_id ) = @_[ KERNEL ,HEAP, ARG0, ARG1 ];
 
 	#First we check for multigate commands ("OUTGOING irc")
 	if ( $input =~ /^OUTGOING\sirc\s(.*?)$/ ) {
@@ -297,17 +303,41 @@ sub console_input {
 		if ( $channel =~ /^#\w+/ ) { $destination = $channel }
 
 		# Attention: an extra newline to prettify the console (blocks of text)
+		my $first = 0;
+		$first = 1 unless defined $sendqueue{$destination} ;
 		foreach my $line (@lines) {
-			# Add to sendqueue
-
-			foreach my $sline (cut_pieces($line,445)) {
-				$irc->yield( privmsg => $destination => $sline );
+			my @pieces = cut_pieces($line,445);
+			foreach my $sline (@pieces) {
+				if($first) {
+					# hack add it to the queue now please
+					$irc->yield( 'privmsg' => $destination => $sline);
+				} else {
+					# Add to sendqueue
+					push @{ $sendqueue{$destination} }, $sline;
+				}
+				$first = 0;
 			}
 		}
 	} elsif ( $input =~ /^DIEDIEDIE/ ) {
 		$diediedie = 1;
-		$irc->call( 'quit' => $quitmessage );
+		$irc->call( quit => $quitmessage );
 	}
+}
+
+sub irc_send_tick {
+	my ($kernel,$heap) = @_[KERNEL,HEAP];
+	if($irc->send_queue() < 2){
+		# queue small enough to add messages
+		foreach my $destination ( keys %sendqueue ) {
+			my $line = shift @{ $sendqueue{$destination} };
+			$irc->yield( 'privmsg' => $destination => $line);
+			unless ( @{ $sendqueue{$destination} } ) {
+				delete $sendqueue{$destination};    #ready with this destination
+			}
+		}
+	}
+
+	$kernel->delay(  'irc_send_tick', 0.1);
 }
 
 sub adduser {
@@ -383,68 +413,20 @@ sub irc_command {
 #actually 2 files: 'last 100' and 'all'
 sub urlgrab {
 
-    if ($dev) { return }
+	if ($dev) { return }
 
-    my $line     = shift;
-    my $origline = $line;
-    my $url;
+	my $line = shift @_;
+	my $origline = $line;
 
-    $line =~ s/>/&gt;/g;
-    $line =~ s/</&lt;/g;
-    if ( $line =~ /(http:\/\/\S+)/i ) {
-        $url = $1;
-        $line =~ s/http:\/\/\S+/<a href=\"$url\">$url<\/a>/i;
-    }
-    elsif ( $line =~ /(www\.\S+)/i ) {
-        $url = $1;
-        $line =~ s/www\.\S+/<a href=\"http:\/\/$url\">$url<\/a>/i;
-    }
-    elsif ( $line =~ /ftp:\/\/(\S+)/i ) {
-        $url = $1;
-        $line =~ s/ftp:\/\/\S+/<a href=\"ftp:\/\/$url\">ftp:\/\/$url<\/a>/i;
-    }
+	if ( getconf('irc_urlspam') ) {
 
-    #print "URL: $url\n";
-    if ( defined($url) && ( $url !~ /pooierphonies\.html/ ) ) {
-        my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
-          localtime(time);
-        if ( $hour < 10 ) { $hour = "0" . $hour }
-        if ( $min < 10 )  { $min  = "0" . $min }
-        if ( $mon < 10 )  { $mon  = "0" . $mon }
-        if ( $mday < 10 ) { $mday = "0" . $mday }
-        $year += 1900;
-        $mon++;
-        my $logdate = "[$mday/$mon/$year $hour:$min] ";
-        my $line    = $logdate . $line . "<br>\n";
-
-        #add to allurlfile, easiest, just append.
-        open( ALLURLFILE, ">>$allurlfile" );
-        print ALLURLFILE $line;
-        close ALLURLFILE;
-
-        #read old file
-        open( URLFILE, "<$urlfile" );
-        my @urls = <URLFILE>;
-        close URLFILE;
-
-        #add our new line to the top
-        unshift @urls, $line;
-        splice @urls, 100;    #only keep first 100 entries
-                              #write the file back to disk
-        open( URLFILE, ">$urlfile" );
-        foreach my $url (@urls) { print URLFILE $url; }
-        close URLFILE;
-
-        if ( getconf('irc_urlspam') ) {
-
-            #send url to multigate
-            # origline contains &gt; &lt;
-            $origline =~ s/&gt;/>/;
-            $origline =~ s/&lt;/</;
-            print STDOUT
-              "INCOMING irc 2system!system\@local !msg urlcatcher $origline\n";
-        }
-    }
+		#send url to multigate
+		# origline contains &gt; &lt;
+		$origline =~ s/&gt;/>/;
+		$origline =~ s/&lt;/</;
+		print STDOUT
+		"INCOMING irc 2system!system\@local !msg urlcatcher $origline\n";
+	}
 }
 
 POE::Session->create(
@@ -459,6 +441,7 @@ POE::Session->create(
 		irc_chan_sync    => 'irc_chan_sync',
 		irc_topic        => 'irc_topic',
 		irc_ctcp_action  => 'irc_ctcp_action',
+		irc_send_tick    => 'irc_send_tick',
 	}
 	]
 );
