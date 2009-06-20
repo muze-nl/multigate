@@ -1,4 +1,4 @@
-package Multigate::IrcLogger;
+package Multigate::IRC::Logger;
 
 use base ("POE::Component::IRC::Plugin::Logger");
 

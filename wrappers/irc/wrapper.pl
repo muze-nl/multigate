@@ -11,7 +11,8 @@ use POE::Component::IRC::Plugin::AutoJoin;
 use POE::Component::IRC::Plugin::NickReclaim;
 use POE::Component::IRC::Plugin::CycleEmpty;
 use POE::Component::IRC::Plugin::CTCP;
-use Multigate::IrcLogger;
+use Multigate::IRC::Logger;
+use Multigate::IRC::UrlCatcher;
 use POE::Component::IRC::Plugin::Connector;
 
 #User management from multigate
@@ -102,8 +103,8 @@ sub irc_start {
 
 	$irc->plugin_add( 'CycleEmpty', POE::Component::IRC::Plugin::CycleEmpty->new() );
 	$irc->plugin_add( 'Connector', POE::Component::IRC::Plugin::Connector->new() );
-	#$irc->plugin_add('Logger', POE::Component::IRC::Plugin::Logger->new(
-	$irc->plugin_add('Logger', Multigate::IrcLogger->new(
+	$irc->plugin_add('UrlCatcher', Multigate::IRC::UrlCatcher->new() );
+	$irc->plugin_add('Logger', Multigate::IRC::Logger->new(
 			Path    => $logdir,
 			Private => 0,
 			Public  => 1,
@@ -157,30 +158,12 @@ sub irc_public {
 		print "INCOMING irc $channel\!$nick\!$hostmask $message\n";
 	}
 
-	urlgrab("&lt;$nick&gt; $message");
 }
-
-sub irc_topic {
-	my ( $nick, $hostmask ) = ( split /!/, $_[ARG0] );
-	my $msg = $_[ARG2];
-
-	urlgrab("&lt;$nick&gt; $msg") unless $msg eq '';
-
-}
-
-sub irc_ctcp_action {
-	my ( $nick, $hostmask ) = ( split /!/, $_[ARG0] );
-	my $msg = $_[ARG2];
-	urlgrab("&lt;$nick&gt; $msg") unless $msg eq '';
-}
-
 
 
 sub irc_disconnected {
 	if ( $diediedie == 1 ) {
 		exit 0;
-	} else {
-		#irc_start();
 	}
 }
 
@@ -409,25 +392,6 @@ sub irc_command {
 	}
 }
 
-#If there is an url in the string, it will be written to a file
-#actually 2 files: 'last 100' and 'all'
-sub urlgrab {
-
-	if ($dev) { return }
-
-	my $line = shift @_;
-	my $origline = $line;
-
-	if ( getconf('irc_urlspam') ) {
-
-		#send url to multigate
-		# origline contains &gt; &lt;
-		$origline =~ s/&gt;/>/;
-		$origline =~ s/&lt;/</;
-		print STDOUT
-		"INCOMING irc 2system!system\@local !msg urlcatcher $origline\n";
-	}
-}
 
 POE::Session->create(
 	package_states => [
@@ -439,8 +403,6 @@ POE::Session->create(
 		irc_disconnected => 'irc_disconnected',
 		irc_chan_mode    => 'irc_chan_mode',
 		irc_chan_sync    => 'irc_chan_sync',
-		irc_topic        => 'irc_topic',
-		irc_ctcp_action  => 'irc_ctcp_action',
 		irc_send_tick    => 'irc_send_tick',
 	}
 	]
