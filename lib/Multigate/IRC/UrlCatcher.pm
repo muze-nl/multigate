@@ -30,7 +30,7 @@ sub S_ctcp_action {
 	my $msg = ${ $_[2] };
 
 	for my $recipient (@{ $recipients }) {
-		urlgrab("&lt;$sender&gt; $msg");
+		urlgrab($sender,$msg);
 	}
 
 	return PCI_EAT_NONE;
@@ -43,7 +43,7 @@ sub S_public {
 	my $msg = ${ $_[2] };
 
 	for my $chan (@{ $channels }) {
-		urlgrab("&lt;$sender&gt; $msg");
+		urlgrab($sender,$msg);
 	}
 	return PCI_EAT_NONE;
 }
@@ -54,7 +54,7 @@ sub S_topic {
 	my $chan = ${ $_[1] };
 	my $new_topic = ${ $_[2] };
 
-	urlgrab("&lt;$changer&gt; $new_topic") unless $new_topic eq '';
+	urlgrab($changer,$new_topic) unless $new_topic eq '';
 
 	return PCI_EAT_NONE;
 }
@@ -62,11 +62,20 @@ sub S_topic {
 
 sub urlgrab {
 
-	my $line = shift @_;
+	my ($sender,$line) = shift @_;
+	my $url = 0;
 
-	$line =~ s/&gt;/>/;
-	$line =~ s/&lt;/</;
-	print "INCOMING irc 2system!system\@local !msg urlcatcher $line\n";
+	if ( $line =~ /(http:\/\/\S+)/i ) {
+		$url = 1;
+	}
+	elsif ( $line =~ /(www\.\S+)/i ) {
+		$url = 1;
+	}
+	elsif ( $line =~ /ftp:\/\/(\S+)/i ) {
+		$url = 1;
+	}
+
+	print "INCOMING irc 2system!system\@local !msg urlcatcher $sender $line\n" if $url ==1;
 }
 
 
