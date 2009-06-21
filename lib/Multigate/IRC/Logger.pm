@@ -8,6 +8,13 @@ use POSIX qw(strftime);
 use strict;
 use warnings;
 
+sub new {
+	my ($package, %args) = @_;
+	my $self = $package->SUPER::new(%args);
+	# add overrides for Format config here
+	return $self;
+}
+
 sub _log_entry {
 	my ($self, $context, $type, @args) = @_;
 	my ($date, $time) = split / /, (strftime '%F %R', localtime);
