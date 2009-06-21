@@ -62,7 +62,7 @@ sub S_topic {
 
 sub urlgrab {
 
-	my ($sender,$line) = shift @_;
+	my ($sender,$line) = @_;
 	my $url = 0;
 
 	if ( $line =~ /(http:\/\/\S+)/i ) {
