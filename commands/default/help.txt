@@ -1,0 +1,4 @@
+default [ls|list]: shows all commands that have a default
+default [del|delete|remove|rm] <command>: deletes the default for command
+default <command>: prints the default for command
+default <command> <string>: sets default for command to string
