@@ -29,13 +29,14 @@ $command = lc($command);
 
 if ( lc($command) eq "list" or lc($command) eq "ls") {
   my $dirname = "../../var/default/$realuser";
-  opendir( DIR, $dirname ) or die "can't opendir $dirname: $!";
   my @defaults;
-  while ( defined( my $file = readdir(DIR) ) ) {
-    next if ($file =~ m/\.+/);
-    push @defaults, $file;
-  }
-  closedir(DIR);
+  if ( opendir( DIR, $dirname )) {
+    while ( defined( my $file = readdir(DIR) ) ) {
+      next if ($file =~ m/\.+/);
+      push @defaults, $file;
+    }
+    closedir(DIR);
+  }  
   if ( @defaults ) {
     print "Defaults set for $realuser: ", join ", ", sort @defaults;
   } else {
