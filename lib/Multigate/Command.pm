@@ -446,6 +446,27 @@ sub exec_command {
         $boxname = $command;
     }
 
+    # Check for defaults
+    if (not defined $args or $args eq '') {
+      my $default_dir = 'var/default' ; # FIXME, get the right directory, based on configfile or relative to current working dir?
+      my $default_file = "$default_dir/$realsender/$command";
+      if( -e $default_file) {
+        if ( open(DEFAULT, "<$default_file") ){
+          my $new_args = <DEFAULT>; # should work, because we expect a newline after the default args
+          close DEFAULT;
+          chomp $new_args; # bloody newline ;)
+          debug( 'Command', "Overriding for defaults, new args: '$new_args' from '$default_file'" );
+          $com->{'args'} = $new_args; # the actual override of the empty args by the default for this user
+        } else {
+          #it exists, but we cannot open it
+          debug( 'Command', "Unable to open defaults file: $default_file" );
+        }		
+      } else {
+        debug( 'Command_debug', "Not overriding for defaults; defaults file does not exist: $default_file" );
+      }	
+    }
+
+
     if ( eval $cache == 0 ) {
         # No caching due to config..
         debug( 'Command', "No caching due to config..." );
@@ -460,7 +481,7 @@ sub exec_command {
         return $content;
     }
 
-    my $cachefile = cachename( $command, $args );
+    my $cachefile = cachename( $command, $com->{'args'} );
     my $content = check_cache($cachefile);
 
     if ( defined $content ) {
