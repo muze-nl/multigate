@@ -57,7 +57,7 @@ if ( lc($command) eq "list" or lc($command) eq "ls") {
   
 } elsif ( command_exists($command) ) {
   my $file = "../../var/default/$realuser/$command";
-  if ($rest eq '') {
+  if ((not defined $rest) or ($rest eq '') ) {
     if ( -e $file) {
       if ( open(DEFAULT, "<$file") ){
         my $new_args = <DEFAULT>; # should work, because we expect a newline after the default args
@@ -70,6 +70,9 @@ if ( lc($command) eq "list" or lc($command) eq "ls") {
       print "No default set for $command for $realuser\n";
     }  
   } else {
+    unless (-d "../../var/default/$realuser") {
+      mkdir "../../var/default/$realuser";
+    }
     if ( open(DEFAULT, ">$file") ) {
       print DEFAULT "$rest\n";
       close DEFAULT;
@@ -78,8 +81,38 @@ if ( lc($command) eq "list" or lc($command) eq "ls") {
       #unable to open file...
     }
   }
-} elsif ( $command eq "admin") {
-  print "Admin functions not yet implemented\n";
+} elsif ( $command eq "admin" and ($userlevel >= $adminlevel) ) {
+  my ($user, $lcommand, $args) = split ' ', $rest, 3;
+  $lcommand = lc($lcommand);
+  if (command_exists($lcommand)) { 
+    my $file = "../../var/default/$user/$lcommand";
+    if ( (not defined $args) or ($args eq '')) {
+      if ( -e $file) {
+        if ( open(DEFAULT, "<$file") ){
+          my $new_args = <DEFAULT>; # should work, because we expect a newline after the default args
+          close DEFAULT;
+          print "Default for $lcommand for $user: $new_args";
+        } else {
+          #unable to open file...
+        }        
+      } else {
+        print "No default set for $lcommand for $user\n";
+      }  
+    } else {
+      unless (-d "../../var/default/$user") {
+        mkdir "../../var/default/$user";
+      }
+      if ( open(DEFAULT, ">$file") ) {
+        print DEFAULT "$args\n";
+        close DEFAULT;
+        print "Default for $lcommand for $user: $args\n"; 
+      } else {
+        #unable to open file...
+      }
+    }
+  } else {
+    print "No such command: $lcommand\n";
+  }
 } else {
   print "Unknown option: $command\n";
 }
