@@ -96,7 +96,9 @@ sub irc_start {
 		Ircname  => 'Multilink',
 		Port     => getconf('irc_port'),
 		Flood    => $irc_flood,
+		useipv6  => 1,
 	);
+
 
 	$irc->plugin_add( 'AutoJoin', POE::Component::IRC::Plugin::AutoJoin->new( Channels => \%channels ) );
 	$irc->plugin_add( 'NickReclaim' => POE::Component::IRC::Plugin::NickReclaim->new( poll => 30 ) );
@@ -160,11 +162,18 @@ sub irc_public {
 
 }
 
+sub irc_connect {
+	if(defined $irc_oper && defined $irc_operpass ) {
+		$irc->yield('oper' => "$irc_oper $irc_operpass" );
+	}
+}
+
+
 
 sub irc_disconnected {
-	if ( $diediedie == 1 ) {
+#	if ( $diediedie == 1 ) {
 		exit 0;
-	}
+#	}
 }
 
 sub irc_nick_sync {
@@ -222,6 +231,7 @@ sub console_input {
 
 	#First we check for multigate commands ("OUTGOING irc")
 	if ( $input =~ /^OUTGOING\sirc\s(.*?)$/ ) {
+		debug('irc_debug', "Got message: $input");
 		my $to_parse = $1;
 		my $channel;
 		my $destination;
@@ -239,7 +249,8 @@ sub console_input {
 		#the something will be parsed here
 
 		#format: #channel!nick!user@host message , this should go to #channel
-		if ( $to_parse =~ /^(#[^!]+)!(.*?)!(.*?)\s(.*)/ ) {
+		if ( $to_parse =~ /^(#[^!]+)!(\w*?)!(.*?)\s(.*)/ ) {
+			debug('irc_debug', 'Format: #channel!nick!user@host message, target should be channel');
 			$channel     = $1;
 			$destination = $2;
 			$userhost    = $3;
@@ -248,6 +259,7 @@ sub console_input {
 		}
 		#format: #!nick!user@host message , this should go to nick
 		elsif ( $to_parse =~ /^#!(.*?)!(.*?)\s(.*)/ ) {
+			debug('irc_debug', 'Format: #!nick!user@host message, target is nick');
 			$channel     = "#";
 			$destination = $1;
 			$userhost    = $2;
@@ -256,6 +268,7 @@ sub console_input {
 		}
 		#format: #channel message , this should go to #channel
 		elsif ( $to_parse =~ /^(#\S+)\s(.*)/ ) {
+			debug('irc_debug', 'Format: #channel message, target is channel');
 			$destination = $1;
 			$channel     = $destination;
 			$msg         = $2;
@@ -263,6 +276,7 @@ sub console_input {
 		}
 		#format: nick!user@host message , this should go to the person that matches
 		elsif ( $to_parse =~ /^(\S*?)!(\S*?)\s(.*)/ ) {
+			debug('irc_debug', 'Format: nick!user@host message, target is person that matches');
 			$channel     = "#";
 			$destination = $1;
 			$userhost    = $2;
@@ -271,12 +285,14 @@ sub console_input {
 		}
 		#format: nick message , this should go to nick (actually the same as #channel message)
 		elsif ( $to_parse =~ /^(.*?)\s(.*)/ ) {
+			debug('irc_debug', 'Format: nick message, target is nick');
 			$channel     = "#";
 			$destination = $1;
 			$userhost    = "nobody\@example.org";    #let's hope he doesn't visit our channel ;)
 			$msg         = $2;
 		}
 
+		debug('irc_debug', "Destination: [$destination]; Userhost: [$userhost]; Message: [$msg]");
 		#multiline messages: \xb6 is internal line seperator
 		my @lines = split /\xb6/, $msg;
 
@@ -401,6 +417,7 @@ POE::Session->create(
 		irc_msg          => 'irc_msg',
 		irc_public       => 'irc_public',
 		irc_disconnected => 'irc_disconnected',
+		irc_001          => 'irc_connect',
 		irc_chan_mode    => 'irc_chan_mode',
 		irc_chan_sync    => 'irc_chan_sync',
 		irc_send_tick    => 'irc_send_tick',
