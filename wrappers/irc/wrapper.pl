@@ -249,7 +249,7 @@ sub console_input {
 		#the something will be parsed here
 
 		#format: #channel!nick!user@host message , this should go to #channel
-		if ( $to_parse =~ /^(#[^!]+)!(\w*?)!(.*?)\s(.*)/ ) {
+		if ( $to_parse =~ /^(#[^!]+)!([^!]*?)!(.*?)\s(.*)/ ) {
 			debug('irc_debug', 'Format: #channel!nick!user@host message, target should be channel');
 			$channel     = $1;
 			$destination = $2;
