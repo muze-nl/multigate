@@ -62,10 +62,13 @@ sub irc_start {
 	srand();
 	open( QUITFILE, "< $quitmessagefile" );
 	my @quitmessages = <QUITFILE>;
-	my $quitmessage  = @quitmessages[ int( rand(@quitmessages) ) ];
+	my $newmessage  = @quitmessages[ int( rand(@quitmessages) ) ];
 	close QUITFILE;
-	debug( 'irc', "If irc ever gets killed, it will say: $quitmessage" );
+	if(defined $newmessage){
+		$quitmessage = $newmessage;
+	}
 
+	debug( 'irc', "If irc ever gets killed, it will say: $quitmessage" );
 
 	my @confchannels  = split /\s+/, getconf('irc_channel');
 
@@ -100,20 +103,19 @@ sub irc_start {
 	);
 
 
-	$irc->plugin_add( 'AutoJoin', POE::Component::IRC::Plugin::AutoJoin->new( Channels => \%channels ) );
+	$irc->plugin_add( 'AutoJoin',      POE::Component::IRC::Plugin::AutoJoin->new( Channels => \%channels ) );
 	$irc->plugin_add( 'NickReclaim' => POE::Component::IRC::Plugin::NickReclaim->new( poll => 30 ) );
 
-	$irc->plugin_add( 'CycleEmpty', POE::Component::IRC::Plugin::CycleEmpty->new() );
-	$irc->plugin_add( 'Connector', POE::Component::IRC::Plugin::Connector->new() );
-	$irc->plugin_add('UrlCatcher', Multigate::IRC::UrlCatcher->new() );
-	$irc->plugin_add('Logger', Multigate::IRC::Logger->new(
+	$irc->plugin_add( 'CycleEmpty',    POE::Component::IRC::Plugin::CycleEmpty->new() );
+	$irc->plugin_add( 'Connector',     POE::Component::IRC::Plugin::Connector->new() );
+	$irc->plugin_add( 'UrlCatcher',    Multigate::IRC::UrlCatcher->new() );
+	$irc->plugin_add( 'Logger',        Multigate::IRC::Logger->new(
 			Path    => $logdir,
 			Private => 0,
 			Public  => 1,
 			Sort_by_date => 1,
 
 		));
-
 
 	# Create and load our CTCP plugin
 	# TODO: add useful info
@@ -307,7 +309,7 @@ sub console_input {
 		foreach my $line (@lines) {
 			my @pieces = cut_pieces($line,445);
 			foreach my $sline (@pieces) {
-				if($first) {
+				if($first || $irc_flood ) {
 					# hack add it to the queue now please
 					$irc->yield( 'privmsg' => $destination => $sline);
 				} else {
