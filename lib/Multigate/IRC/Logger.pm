@@ -1,12 +1,15 @@
 package Multigate::IRC::Logger;
 
-use base ("POE::Component::IRC::Plugin::Logger");
+use base (POE::Component::IRC::Plugin::Logger);
 
 use POSIX qw(strftime);
 
+use File::Spec::Functions qw( catfile);
+use POE::Component::IRC::Common qw( l_irc );
 
 use strict;
 use warnings;
+
 
 sub new {
 	my ($package, %args) = @_;
@@ -18,7 +21,8 @@ sub new {
 sub _log_entry {
 	my ($self, $context, $type, @args) = @_;
 	my ($date, $time) = split / /, (strftime '%F %R', localtime);
-	$context = l_irc $context, $self->{irc}->isupport('CASEMAPPING');
+	my $case = $self->{irc}->isupport('CASEMAPPING');
+	$context = l_irc($context, $case);
 
 	if ($context =~ /^[#&+!]/) {
 		return if !$self->{Public};
@@ -28,7 +32,6 @@ sub _log_entry {
 	}
 
 	return if !defined $self->{Format}->{$type};
-
 
 	my ( $sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst ) =
 	      localtime(time);
