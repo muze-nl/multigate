@@ -7,7 +7,7 @@
 #
 
 use strict;
-use lib '../lib/';
+use lib './lib/';
 
 #User management from multigate
 use Multigate::Users;
