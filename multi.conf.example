@@ -67,3 +67,5 @@ msn_fname = Multigate
 jabber_login = xxxxx
 jabber_server = jabber.com
 jabber_pass = xxxx
+
+email_address = Multigate <multilink@ringbreak.dnd.utwente.nl>
