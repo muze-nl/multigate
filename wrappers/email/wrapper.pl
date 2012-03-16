@@ -22,6 +22,9 @@ use strict;
 use lib 'lib';
 use Multigate::Debug;
 
+use Multigate::Config qw(readconfig getconf hasconf);
+readconfig('multi.conf');
+
 $| = 1;
 
 my $protocol = "email";
@@ -62,7 +65,7 @@ sub send_email {
 
     $mailer->open(
         {
-            From    => 'Multigate <multilink@ringbreak.dnd.utwente.nl>',
+            From    => getconf('email_address') || 'Multigate <multilink@ringbreak.dnd.utwente.nl>',
             To      => $address,
             Subject => $subject
         }
