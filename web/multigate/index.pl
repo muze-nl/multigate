@@ -785,7 +785,7 @@ EOT
 #
 sub salt {
     my @saltset = ( 0 .. 9, 'A' .. 'Z', 'a' .. 'z', '.', '/' );
-    return '$1$'.(join '', @saltset[ map { rand @saltset } (0..7) ]).'$'
+    return '$1$'.(join '', @saltset[ map { rand @saltset } (0..7) ]).'$';
 }
 
 if ( defined $dbh ) {
