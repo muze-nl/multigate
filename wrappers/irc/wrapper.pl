@@ -183,6 +183,12 @@ sub irc_nick_sync {
 	my $channel = $_[ARG1];
 	if ( $nick ne $irc->nick_name() && !$irc->is_channel_operator( $channel, $nick ) ) {
 		my $info = $irc->nick_info($nick);
+		if($info eq undef ) {
+			# workaround
+			$info = $irc->nick_info($channel);
+			$channel = $nick;
+			$nick = $info->{'Nick'}
+		}
 		adduser( $channel, $nick, $info->{'Userhost'} );
 	}
 }
