@@ -1,0 +1,1 @@
+install [commandname]: installs a new command from commands-repository

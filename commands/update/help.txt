@@ -1,0 +1,1 @@
+update [commandname]: update an existing command to latest version
