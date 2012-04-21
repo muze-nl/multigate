@@ -75,7 +75,7 @@ sub urlgrab {
 		$url = 1;
 	}
 
-	print "INCOMING irc 2system!system\@local !msg urlcatcher $sender $line\n" if $url ==1;
+	print "INCOMING system 2system!system\@local !urllogger urllogger $sender $line\n" if $url ==1;
 }
 
 
