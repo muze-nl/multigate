@@ -1,0 +1,10 @@
+<html><head><title>Links on #<channel></title></head>
+<body>
+Last 100 links on #<channel>. Complete <a href="alllinks.shtml">list</a>
+of "all" links.<br><br>
+
+<font size=-1>
+<!--#include virtual="allautolink.shtml"-->
+</font>
+</body>
+</html>
