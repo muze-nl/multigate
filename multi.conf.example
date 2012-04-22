@@ -10,7 +10,7 @@
 multiversion = 3.0
 
 #default_protocols: space separated protocol names
-default_protocols = irc icq email msn systray
+default_protocols = urllogger irc
 
 #restart_protocols: space separated protocol names. 'none' for no restartable protocols
 restart_protocols = irc icq msn 
@@ -69,3 +69,6 @@ jabber_server = jabber.com
 jabber_pass = xxxx
 
 email_address = Multigate <multilink@ringbreak.dnd.utwente.nl>
+
+urllogger_urlfile = web/autolink.shtml
+urllogger_allurlfile = web/allautolink.shtml
