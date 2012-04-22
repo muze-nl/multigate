@@ -3,13 +3,31 @@
 
 use strict;
 
+use lib '../../lib/';
+use Multigate::Config qw( getconf readconfig hasconf);
+use Multigate::Debug;
+
+
+use DBI;
+
 my $multidir = $ENV{MULTI_ROOT};
 my $dstdir = "${multidir}/commands";
 #Fixme, get from configfile
-my $repos = 'https://github/mjrider/multigateCommands/trunk/';
+
+my $repos = 'https://github.com/mjrider/multigateCommands/trunk/';
 my $svn_user = '';
 my $svn = '/usr/bin/svn';
 my $branch;
+
+readconfig($multidir.'/multi.conf');    # reread config file on wrapper start
+
+
+if( hasconf('command_repository') ) {
+	$repos = getconf('command_repository');
+}
+
+debug('install','install has repos '.$repos);
+
 
 unless (defined $multidir and -d $dstdir) {
   print "Installation directory \"$dstdir\" undefined or invalid\n";
