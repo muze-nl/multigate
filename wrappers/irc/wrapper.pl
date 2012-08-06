@@ -313,7 +313,10 @@ sub console_input {
 		my $first = 0;
 		$first = 1 unless defined $sendqueue{$destination} ;
 		foreach my $line (@lines) {
-			my @pieces = cut_pieces($line,445);
+			# length(':'.$sender.' PRIVMSG '.$destination.' :'.$message) should be <= 510
+			# FIXME: should determine $sender and use that in the calculation below
+			# NOTE: it seems that newer ircds have approx. 20 chars more overhead (references?)
+			my @pieces = cut_pieces($line,430 - length($destination));
 			foreach my $sline (@pieces) {
 				if($first || $irc_flood ) {
 					# hack add it to the queue now please
