@@ -86,6 +86,7 @@ sub read_handler {
     chomp $in;
 
     debug( 'Console_debug', "Console::read_handler |$in|\n" );
+		return if $in =~ m/^\s*$/;
 
     my ( $what, $rest ) = split( " ", $in, 2 );
     my $subref;
