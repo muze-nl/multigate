@@ -741,15 +741,8 @@ EOT
     $bt = undef unless $bt =~ /^\d\d\d\d-\d\d-\d\d$/;
 
     $res = $dbh->do( <<'EOT', {}, $un, $cpw, $irl, $ul, $bd, $bt );
-INSERT INTO
-  user
-SET
-  username = ?,
-  password = ?,
-  irl = ?,
-  level = ?,
-  birthday = ?,
-  birthtime = ?
+INSERT INTO user (username, password, irl, level, birthday, birthtime)
+VALUES (?, ?, ?, ?, ?, ?)
 EOT
 
     printheader();
@@ -1111,11 +1104,8 @@ EOT
     }
 
     $err = $dbh->do( <<'EOT', {}, $un, $alias );
-INSERT INTO
-  alias
-SET
-  username =?,
-  alias = ?
+INSERT INTO alias (username, alias)
+VALUES (?, ?)
 EOT
 
     printheader();
