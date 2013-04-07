@@ -27,7 +27,7 @@ use Multigate::Users;
 # main
 #
 
-my ( $action, $subref, %dispatch, $password, $fh );
+my ( $action, $subref, %dispatch, $fh );
 
 %dispatch = (
     'showallusers'         => \&showallusers,
