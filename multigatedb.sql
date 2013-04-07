@@ -174,7 +174,7 @@ CREATE TABLE `user` (
   `username` varchar(32) NOT NULL DEFAULT '',
   `irl` varchar(64) NOT NULL DEFAULT '',
   `level` int(10) unsigned NOT NULL DEFAULT '0',
-  `password` varchar(32) NOT NULL DEFAULT '',
+  `password` varchar(34) NOT NULL DEFAULT '',
   `birthday` date DEFAULT NULL,
   `birthtime` time DEFAULT NULL,
   PRIMARY KEY (`username`)
