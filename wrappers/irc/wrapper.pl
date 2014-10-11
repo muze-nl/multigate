@@ -82,24 +82,45 @@ sub irc_start {
 		}
 	}
 
-	if ( hasconf('irc_flood') ) {
-		debug('irc','irc_flood is set');
-		$irc_flood = getconf('irc_flood');
-	}
 
 	if ( hasconf('irc_oper') ) {
 		$irc_oper     = getconf('irc_oper');
 		$irc_operpass = getconf('irc_operpass');
 	}
 
-	$irc = POE::Component::IRC::State->spawn(
+	my %args = (
 		Nick     => getconf('irc_nick'),
 		Server   => getconf('irc_server'),
 		Username => 'Multilink',
 		Ircname  => 'Multilink',
-		Port     => getconf('irc_port'),
-		Flood    => $irc_flood,
+		Port     => 6667,
+		Flood    => 0,
 		useipv6  => 1,
+		debug    => 0,
+	);
+
+	if ( hasconf('irc_pass') ) {
+		$args{Password} = getconf('irc_pass');
+	}
+	if ( hasconf('irc_debug') ) {
+		$args{debug} = getconf('irc_debug');
+	}
+	if ( hasconf('irc_flood') ) {
+		debug('irc','irc_flood is set');
+		$args{Flood} = getconf('irc_flood');
+	}
+	if ( hasconf('irc_ipv6') ) {
+		debug('irc','irc_ipv6 is set');
+		$args{useipv6} = getconf('irc_ipv6');
+	}
+	if ( hasconf('irc_port') ) {
+		debug('irc','irc_port is set');
+		$args{Port} = getconf('irc_port');
+	}
+	
+
+	$irc = POE::Component::IRC::State->spawn(
+		%args
 	);
 
 
