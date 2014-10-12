@@ -41,7 +41,7 @@ db_name = multigate
 accountlog = /home/multilink/multigate/accountlog/
 
 # default comamnd svn repository
-command_repository = https://svn.muze.nl/svn/multigate_commands/
+command_repository = https://github.com/muze-nl/multigateCommands/
 
 # Wrapper specific config
 irc_nick = Multigate
