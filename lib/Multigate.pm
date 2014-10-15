@@ -190,6 +190,12 @@ sub auto_restart_check_add {
     foreach my $protocol (@restartprotocols) {
         if ( $dead_protocol eq $protocol ) {
             my $restart_time = time() + $restart_timeout;
+
+            # find an empty timeslot in the restart queue,
+            # otherwise we would overwrite entries in the queue
+            while ( defined $restart_queue{$restart_time}  ) {
+                $restart_time = $restart_time + 1;
+            }
             $restart_queue{$restart_time} = $dead_protocol;   # time => protocol
                  # Possible problem: time is not unique??
             $restart_waiting++;
